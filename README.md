@@ -13,7 +13,7 @@ Sets processed by these tools must be itemized and made public.
 
 ## Subcommands
 
-### aat holdings-clean-up-call-numbers
+### holdings-clean-up-call-numbers
 
 Clean up call numbers in holdings. The following rules are applied:
 
@@ -23,7 +23,7 @@ Clean up call numbers in holdings. The following rules are applied:
 * Remove any spaces between a period and a number.
 * Remove any leading or trailing whitespace.
 
-### aat po-line-update-renewal-date-and-renewal-period
+### po-line-update-renewal-date-and-renewal-period
 
 Update the renewal date and renewal period for PO Lines in Alma
 
