@@ -1,11 +1,13 @@
 # alma-api-toolkit
 
-The Alma API toolkit is a set of tasks which run against the Alma API. It is a replacement for a series of Python scripts which all did similar things:
+The Alma API toolkit is a set of tasks which run against the Alma API. It is a replacement for a series of simple scripts which all did similar things:
 
 1. Collect identifiers in an Alma set. 
 2. Run a task against all those identifiers. 
 
 Those scripts worked well for smaller sets, but were too unreliable for larger sets.
+
+This toolkit improves reliability by first storing all collected identifiers in a local SQLite database, then ensuring the task has been run on all those identifiers, retrying failed HTTP calls if required. HTTP requests are performed in parallel when possible, so that tasks can be completed more quickly. It also ensures the API call limit is respected. 
 
 Sets processed by these tools must be itemized and made public.
 
