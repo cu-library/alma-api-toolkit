@@ -6,11 +6,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/cu-library/overridefromenv"
 )
@@ -29,31 +34,62 @@ const (
 // A version flag, which should be overwritten when building using ldflags.
 var version = "devel"
 
+// SubcommandProperties stores information about subcommands.
+type SubcommandProperties struct {
+	ReadAccess  []string // The API endpoints which will require read-only access.
+	WriteAccess []string // The API endpoints which will require write access.
+}
+
+// validSubcommands is a map of subcommands this tool understands.
+var validSubcommands = map[string]SubcommandProperties{
+	"holdings-clean-up-call-numbers": SubcommandProperties{
+		ReadAccess:  []string{"/almaws/v1/conf"},
+		WriteAccess: []string{"/almaws/v1/bibs"},
+	},
+}
+
 func main() {
+	// Set the prefix of the default logger to the empty string.
+	log.SetFlags(0)
+
 	// Define the command line flags
-	almaAPIKey := flag.String("almaapikey", "", "The Alma API key. Required.")
-	almaAPIServer := flag.String("almaapi", DefaultAlmaAPIURL, "The Alma API server to use.")
+	key := flag.String("key", "", "The Alma API key. Required.")
+	server := flag.String("server", DefaultAlmaAPIURL, "The Alma API server to use.")
 	dryrun := flag.Bool("dryrun", false, "Do not perform any updates. Report on what changes would have been made.")
-	setID := flag.String("setid", "", "The ID of the set we are processing.")
-	setName := flag.String("setname", "", "The name of the set we are processing.")
+	setID := flag.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
+	setName := flag.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
 	printVersion := flag.Bool("version", false, "Print the version then exit.")
+	printHelp := flag.Bool("help", false, "Print help for this command then exit.")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "%v\n", ProjectName)
-		fmt.Fprintf(os.Stderr, "Version %v\n", version)
+		fmt.Fprintf(flag.CommandLine.Output(), "%v\n", ProjectName)
+		fmt.Fprintf(flag.CommandLine.Output(), "Version %v\n", version)
 		flag.PrintDefaults()
-		fmt.Fprintln(os.Stderr, "  Environment variables read when flag is unset:")
+		fmt.Fprintln(flag.CommandLine.Output(), "  Environment variables read when flag is unset:")
 
 		flag.VisitAll(func(f *flag.Flag) {
-			fmt.Fprintf(os.Stderr, "  %v%v\n", EnvPrefix, strings.ToUpper(f.Name))
+			fmt.Fprintf(flag.CommandLine.Output(), "  %v%v\n", EnvPrefix, strings.ToUpper(f.Name))
 		})
 
-		fmt.Fprintln(os.Stderr, "Subcommands:")
-		fmt.Fprintln(os.Stderr, "  holdings-clean-up-call-numbers")
+		fmt.Fprintln(flag.CommandLine.Output(), "Subcommands:")
+		for subcommand := range validSubcommands {
+			fmt.Fprintf(flag.CommandLine.Output(), "  %v\n", subcommand)
+		}
 	}
 
 	// Process the flags.
 	flag.Parse()
+
+	// Quick exit for help and version flags
+	if *printVersion {
+		fmt.Printf("%v - Version %v.\n", ProjectName, version)
+		os.Exit(0)
+	}
+	if *printHelp {
+		flag.CommandLine.SetOutput(os.Stdout)
+		flag.Usage()
+		os.Exit(0)
+	}
 
 	// If any flags have not been set, see if there are
 	// environment variables that set them.
@@ -62,12 +98,8 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	if *printVersion {
-		fmt.Printf("%v - Version %v.\n", ProjectName, version)
-		os.Exit(0)
-	}
-
-	if *almaAPIKey == "" {
+	// Check that required flags are set.
+	if *key == "" {
 		log.Fatal("FATAL: An Alma API key is required.")
 	}
 	if *setName == "" && *setID == "" {
@@ -77,20 +109,56 @@ func main() {
 		log.Fatal("FATAL: A set name OR a set ID can be provided, not both.")
 	}
 
-	if len(os.Args) == 1 {
+	// Was a subcommand provided? Was it valid?
+	if len(flag.Args()) == 0 {
+		log.Println("FATAL: A subcommand is required.")
+		flag.Usage()
+		os.Exit(1)
+	}
+	subcommandName := flag.Args()[0]
+	subcommandProperties, validSubcommand := validSubcommands[subcommandName]
+	if !validSubcommand {
+		log.Printf("FATAL: \"%v\" is not a valid subcommand.\n", subcommandName)
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	switch os.Args[1] {
-	case "holdings-clean-up-call-numbers":
-		fmt.Println("Holdings clean up")
-		fmt.Println(*almaAPIServer)
-		fmt.Println(*dryrun)
-	default:
-		fmt.Printf("%v is not valid command.\n", os.Args[1])
-		flag.Usage()
-		os.Exit(2)
+	// Keep track of child goroutines.
+	var running sync.WaitGroup
+
+	// Our base context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Our shared http client.
+	client := &http.Client{}
+
+	// Cancel the base context if SIGINT or SIGTERM are recieved.
+	running.Add(1)
+	go func() {
+		defer running.Done()
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		select {
+		case <-sigs:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	if *dryrun {
+		log.Println("Running in dryrun mode, no changes will be made.")
 	}
 
+	remainingAPICalls, err := CheckAPIandKey(ctx, client, *server, *key, subcommandProperties.ReadAccess, subcommandProperties.WriteAccess)
+	if err != nil {
+		cancel()
+		running.Wait()
+		log.Printf("\nFATAL: API Check failed, %v\n", err)
+		os.Exit(1)
+	}
+	log.Println("Remaining API calls: ", remainingAPICalls)
+
+	cancel()
+	running.Wait()
+	os.Exit(0)
 }
