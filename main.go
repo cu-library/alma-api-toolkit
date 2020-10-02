@@ -29,6 +29,9 @@ const (
 
 	// DefaultAlmaAPIURL is the default Alma API Server.
 	DefaultAlmaAPIURL = "api-ca.hosted.exlibrisgroup.com"
+
+	// RemainingAPICallsThreshold is the minimum number of API calls remaining before the tool automatically stops working.
+	RemainingAPICallsThreshold = 50000
 )
 
 // A version flag, which should be overwritten when building using ldflags.
@@ -115,33 +118,52 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
-	subcommandName := flag.Args()[0]
-	subcommandProperties, validSubcommand := validSubcommands[subcommandName]
-	if !validSubcommand {
-		log.Printf("FATAL: \"%v\" is not a valid subcommand.\n", subcommandName)
+	subName := flag.Args()[0]
+	subProperties, valid := validSubcommands[subName]
+	if !valid {
+		log.Printf("FATAL: \"%v\" is not a valid subcommand.\n", subName)
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	// Keep track of child goroutines.
-	var running sync.WaitGroup
+	var wg sync.WaitGroup
 
-	// Our base context
+	// Our base context, used to derive all other contexts and propigrate cancel signals.
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Our shared http client.
-	client := &http.Client{}
+	// A channel on which the number of remaining API calls is sent.
+	remAPICalls := make(chan int)
 
 	// Cancel the base context if SIGINT or SIGTERM are recieved.
-	running.Add(1)
+	wg.Add(1)
 	go func() {
-		defer running.Done()
+		defer wg.Done()
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 		select {
 		case <-sigs:
+			log.Println("Cancelling...")
 			cancel()
 		case <-ctx.Done():
+		}
+	}()
+
+	// Cancel the base context if the number of remaining API calls falls below the threshold.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case remAPICalls := <-remAPICalls:
+				if remAPICalls <= RemainingAPICallsThreshold {
+					log.Printf("FATAL: API call threshold reached, only %v calls remaining.\n", remAPICalls)
+					cancel()
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 
@@ -149,16 +171,47 @@ func main() {
 		log.Println("Running in dryrun mode, no changes will be made.")
 	}
 
-	remainingAPICalls, err := CheckAPIandKey(ctx, client, *server, *key, subcommandProperties.ReadAccess, subcommandProperties.WriteAccess)
+	// Our shared http client.
+	client := &http.Client{}
+
+	err = CheckAPIandKey(ctx, client, remAPICalls, *server, *key, subProperties.ReadAccess, subProperties.WriteAccess)
 	if err != nil {
 		cancel()
-		running.Wait()
-		log.Printf("\nFATAL: API Check failed, %v\n", err)
+		wg.Wait()
+		log.Printf("FATAL: API Check failed, %v.\n", err)
 		os.Exit(1)
 	}
-	log.Println("Remaining API calls: ", remainingAPICalls)
+
+	if *setID == "" && *setName != "" {
+		*setID, err = GetSetIDFromName(ctx, client, remAPICalls, *server, *key, *setName)
+		if err != nil {
+			cancel()
+			wg.Wait()
+			log.Printf("FATAL: Getting set ID from set name failed, %v.\n", err)
+			os.Exit(1)
+		}
+		log.Printf("ID %v found for set name %v.", *setID, *setName)
+	}
+
+	numMembers, err := GetNumberOfMembers(ctx, client, remAPICalls, *server, *key, *setID)
+	if err != nil {
+		cancel()
+		wg.Wait()
+		log.Printf("FATAL: Getting number of set members from set ID failed, %v.\n", err)
+		os.Exit(1)
+	}
+	log.Println(numMembers)
+
+	memberIDs, err := GetMemberIDs(ctx, client, remAPICalls, *server, *key, *setID, numMembers)
+	if err != nil {
+		cancel()
+		wg.Wait()
+		log.Printf("FATAL: Getting member IDs from set failed, %v.\n", err)
+		os.Exit(1)
+	}
+	log.Println(memberIDs)
 
 	cancel()
-	running.Wait()
+	wg.Wait()
 	os.Exit(0)
 }
