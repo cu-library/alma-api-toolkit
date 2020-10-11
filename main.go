@@ -1,7 +1,7 @@
 // Copyright 2020 Carleton University Library.
 // All rights reserved.
 // Use of this source code is governed by the MIT
-// license that can be found in the LICENSE file.
+// license that can be found in the LICENSE.txt file.
 
 package main
 
@@ -37,19 +37,21 @@ const (
 // A version flag, which should be overwritten when building using ldflags.
 var version = "devel"
 
-// SubcommandProperties stores information about subcommands.
-type SubcommandProperties struct {
-	ReadAccess  []string // The API endpoints which will require read-only access.
-	WriteAccess []string // The API endpoints which will require write access.
+// Requester defines functions which send the request and returns the body bytes and error.
+type Requester func(*http.Request) ([]byte, error)
+
+// Subcommand stores information about subcommands.
+type Subcommand struct {
+	ReadAccess    []string                // The API endpoints which will require read-only access.
+	WriteAccess   []string                // The API endpoints which will require write access.
+	FlagSet       *flag.FlagSet           // The Flag set for this subcommand.
+	ValidateFlags func() error            // A function which validates that the flagset is valid after it is parsed.
+	Run           func(Requester) []error // Call this function for this subcommand.
 }
 
-// validSubcommands is a map of subcommands this tool understands.
-var validSubcommands = map[string]SubcommandProperties{
-	"holdings-clean-up-call-numbers": SubcommandProperties{
-		ReadAccess:  []string{"/almaws/v1/conf"},
-		WriteAccess: []string{"/almaws/v1/bibs"},
-	},
-}
+// SubcommandMap maps the string from the command line to the properties of a subcommand.
+// In practice, the key is always the same as the FlagSet's name.
+type SubcommandMap map[string]*Subcommand
 
 func main() {
 	// Set the prefix of the default logger to the empty string.
@@ -59,24 +61,32 @@ func main() {
 	key := flag.String("key", "", "The Alma API key. Required.")
 	server := flag.String("server", DefaultAlmaAPIURL, "The Alma API server to use.")
 	dryrun := flag.Bool("dryrun", false, "Do not perform any updates. Report on what changes would have been made.")
-	setID := flag.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
-	setName := flag.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
 	printVersion := flag.Bool("version", false, "Print the version then exit.")
 	printHelp := flag.Bool("help", false, "Print help for this command then exit.")
+
+	// Subcommands this tool understands.
+	subcommands := SubcommandMap{}
+	subcommands.addPrintCodeTables()
+	subcommands.addHoldingsCleanUpCallNumbers()
+	subcommands.addItemsViewRequests()
+	subcommands.addItemsCancelRequests()
+	subcommands.addItemsScanIn()
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "%v\n", ProjectName)
 		fmt.Fprintf(flag.CommandLine.Output(), "Version %v\n", version)
+		fmt.Fprintf(flag.CommandLine.Output(), "%v [FLAGS] subcommand [SUBCOMMAND FLAGS]\n", os.Args[0])
 		flag.PrintDefaults()
 		fmt.Fprintln(flag.CommandLine.Output(), "  Environment variables read when flag is unset:")
-
 		flag.VisitAll(func(f *flag.Flag) {
 			fmt.Fprintf(flag.CommandLine.Output(), "  %v%v\n", EnvPrefix, strings.ToUpper(f.Name))
 		})
-
 		fmt.Fprintln(flag.CommandLine.Output(), "Subcommands:")
-		for subcommand := range validSubcommands {
-			fmt.Fprintf(flag.CommandLine.Output(), "  %v\n", subcommand)
+		for name, sub := range subcommands {
+			fmt.Fprintf(flag.CommandLine.Output(), "%v\n", name)
+			if sub.FlagSet != nil {
+				sub.FlagSet.Usage()
+			}
 		}
 	}
 
@@ -105,11 +115,10 @@ func main() {
 	if *key == "" {
 		log.Fatal("FATAL: An Alma API key is required.")
 	}
-	if *setName == "" && *setID == "" {
-		log.Fatal("FATAL: A set name or a set ID are required.")
-	}
-	if *setName != "" && *setID != "" {
-		log.Fatal("FATAL: A set name OR a set ID can be provided, not both.")
+
+	if *dryrun {
+		//log.Println("Running in dryrun mode, no changes will be made.")
+		log.Fatal("FATAL: Dryrun mode not yet implimented.")
 	}
 
 	// Was a subcommand provided? Was it valid?
@@ -119,11 +128,28 @@ func main() {
 		os.Exit(1)
 	}
 	subName := flag.Args()[0]
-	subProperties, valid := validSubcommands[subName]
+	sub, valid := subcommands[subName]
 	if !valid {
 		log.Printf("FATAL: \"%v\" is not a valid subcommand.\n", subName)
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	// Ignore errors; FlagSets are all set for ExitOnError.
+	_ = sub.FlagSet.Parse(flag.Args()[1:])
+	// If any flags have not been set, see if there are
+	// environment variables that set them.
+	err = overridefromenv.Override(sub.FlagSet, subcommandEnvPrefix(EnvPrefix, subName))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if sub.ValidateFlags != nil {
+		err = sub.ValidateFlags()
+		if err != nil {
+			log.Printf("FATAL: %v.\n", err)
+			flag.Usage()
+			os.Exit(1)
+		}
 	}
 
 	// Keep track of child goroutines.
@@ -167,14 +193,11 @@ func main() {
 		}
 	}()
 
-	if *dryrun {
-		log.Println("Running in dryrun mode, no changes will be made.")
-	}
-
 	// Our shared http client.
 	client := &http.Client{}
+	requestFunc := MakeRequestFunc(ctx, client, remAPICalls, *server, *key)
 
-	err = CheckAPIandKey(ctx, client, remAPICalls, *server, *key, subProperties.ReadAccess, subProperties.WriteAccess)
+	err = CheckAPIandKey(requestFunc, sub.ReadAccess, sub.WriteAccess)
 	if err != nil {
 		cancel()
 		wg.Wait()
@@ -182,34 +205,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *setID == "" && *setName != "" {
-		*setID, err = GetSetIDFromName(ctx, client, remAPICalls, *server, *key, *setName)
-		if err != nil {
-			cancel()
-			wg.Wait()
-			log.Printf("FATAL: Getting set ID from set name failed, %v.\n", err)
-			os.Exit(1)
+	errs := sub.Run(requestFunc)
+	if len(errs) != 0 {
+		cancel()
+		wg.Wait()
+		log.Println("FATAL: Error(s) occured:")
+		for _, err := range errs {
+			log.Println("  ", err)
 		}
-		log.Printf("ID %v found for set name %v.", *setID, *setName)
-	}
-
-	numMembers, err := GetNumberOfMembers(ctx, client, remAPICalls, *server, *key, *setID)
-	if err != nil {
-		cancel()
-		wg.Wait()
-		log.Printf("FATAL: Getting number of set members from set ID failed, %v.\n", err)
 		os.Exit(1)
 	}
-	log.Println(numMembers)
-
-	memberIDs, err := GetMemberIDs(ctx, client, remAPICalls, *server, *key, *setID, numMembers)
-	if err != nil {
-		cancel()
-		wg.Wait()
-		log.Printf("FATAL: Getting member IDs from set failed, %v.\n", err)
-		os.Exit(1)
-	}
-	log.Println(memberIDs)
 
 	cancel()
 	wg.Wait()
