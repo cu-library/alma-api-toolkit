@@ -60,7 +60,6 @@ func main() {
 	// Define the command line flags
 	key := flag.String("key", "", "The Alma API key. Required.")
 	server := flag.String("server", DefaultAlmaAPIURL, "The Alma API server to use.")
-	dryrun := flag.Bool("dryrun", false, "Do not perform any updates. Report on what changes would have been made.")
 	printVersion := flag.Bool("version", false, "Print the version then exit.")
 	printHelp := flag.Bool("help", false, "Print help for this command then exit.")
 
@@ -114,11 +113,6 @@ func main() {
 	// Check that required flags are set.
 	if *key == "" {
 		log.Fatal("FATAL: An Alma API key is required.")
-	}
-
-	if *dryrun {
-		//log.Println("Running in dryrun mode, no changes will be made.")
-		log.Fatal("FATAL: Dryrun mode not yet implimented.")
 	}
 
 	// Was a subcommand provided? Was it valid?
