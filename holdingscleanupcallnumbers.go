@@ -6,6 +6,7 @@
 package main
 
 import (
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"log"
@@ -35,24 +36,76 @@ func (m SubcommandMap) addHoldingsCleanUpCallNumbers() {
 			if len(errs) != 0 {
 				return errs
 			}
-			count, errs := CleanUpCallNumbers(requester, members, *dryrun)
+			holdingRecords, errs := GetHoldingsRecords(requester, members)
+			if len(errs) != 0 {
+				return errs
+			}
+			count, errs := CleanUpCallNumbers(requester, holdingRecords, *dryrun)
 			fmt.Printf("%v call numbers processed.\n", count)
 			return errs
 		},
 	}
 }
 
-// CleanUpCallNumbers cleans up call numbers in holdings records.
-func CleanUpCallNumbers(requester Requester, members []Member, dryrun bool) (count int, errs []error) {
+// GetHoldingsRecords returns the holdings records for the members of the set.
+func GetHoldingsRecords(requester Requester, members []Member) (holdingRecords []HoldingListMember, errs []error) {
 	errorsMux := sync.Mutex{}
-	countMux := sync.Mutex{}
+	recordsMux := sync.Mutex{}
 	jobs := make(chan func())
 	wg := sync.WaitGroup{}
 	startWorkers(&wg, jobs)
 	for _, member := range members {
 		member := member // avoid closure refering to wrong value
 		jobs <- func() {
-			err := cleanUpCallNumbers(requester, member, dryrun)
+			memberHoldings, err := getHoldingsRecords(requester, member)
+			if err != nil {
+				errorsMux.Lock()
+				defer errorsMux.Unlock()
+				errs = append(errs, err)
+			} else {
+				recordsMux.Lock()
+				defer recordsMux.Unlock()
+				holdingRecords = append(holdingRecords, memberHoldings...)
+			}
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	return holdingRecords, errs
+}
+
+func getHoldingsRecords(requester Requester, member Member) (holdingRecords []HoldingListMember, err error) {
+	url, err := url.Parse(member.Link + "/holdings")
+	if err != nil {
+		return holdingRecords, err
+	}
+	r, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		return holdingRecords, err
+	}
+	body, err := requester(r)
+	if err != nil {
+		return holdingRecords, err
+	}
+	holdings := Holdings{}
+	err = xml.Unmarshal(body, &holdings)
+	if err != nil {
+		return holdingRecords, fmt.Errorf("unmarshalling holdings XML failed: %w\n%v", err, string(body))
+	}
+	return holdings.HoldingsRecords, nil
+}
+
+// CleanUpCallNumbers cleans up the call numbers in the holdings records.
+func CleanUpCallNumbers(requester Requester, holdingRecords []HoldingListMember, dryrun bool) (count int, errs []error) {
+	errorsMux := sync.Mutex{}
+	countMux := sync.Mutex{}
+	jobs := make(chan func())
+	wg := sync.WaitGroup{}
+	startWorkers(&wg, jobs)
+	for _, record := range holdingRecords {
+		record := record // avoid closure refering to wrong value
+		jobs <- func() {
+			err := cleanUpCallNumbers(requester, record, dryrun)
 			if err != nil {
 				errorsMux.Lock()
 				defer errorsMux.Unlock()
@@ -69,8 +122,8 @@ func CleanUpCallNumbers(requester Requester, members []Member, dryrun bool) (cou
 	return count, errs
 }
 
-func cleanUpCallNumbers(requester Requester, member Member, dryrun bool) error {
-	url, err := url.Parse(member.Link + "/holdings")
+func cleanUpCallNumbers(requester Requester, holdingRecord HoldingListMember, dryrun bool) error {
+	url, err := url.Parse(holdingRecord.Link)
 	if err != nil {
 		return err
 	}
@@ -82,7 +135,6 @@ func cleanUpCallNumbers(requester Requester, member Member, dryrun bool) error {
 	if err != nil {
 		return err
 	}
-	log.Println(dryrun)
-	log.Println(string(body))
+	log.Println(holdingRecord.Link, "\n", string(body))
 	return nil
 }

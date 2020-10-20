@@ -60,6 +60,41 @@ type UserRequest struct {
 	RequestSubType string `xml:"request_sub_type"`
 }
 
+// HoldingListMember stores data about a holding record when it's returned from the Holdings list
+// /almaws/v1/bibs/{mms_id}/holdings
+type HoldingListMember struct {
+	Link      string `xml:"link,attr"`
+	HoldingID string `xml:"holding_id"`
+	Library   struct {
+		Text string `xml:",chardata"`
+		Desc string `xml:"desc,attr"`
+	} `xml:"library"`
+	Location struct {
+		Text string `xml:",chardata"`
+		Desc string `xml:"desc,attr"`
+	} `xml:"location"`
+	CallNumber             string `xml:"call_number"`
+	SuppressFromPublishing string `xml:"suppress_from_publishing"`
+}
+
+// Holdings stores data about holdings under a bib record.
+type Holdings struct {
+	XMLName          xml.Name            `xml:"holdings"`
+	TotalRecordCount string              `xml:"total_record_count,attr"`
+	HoldingsRecords  []HoldingListMember `xml:"holding"`
+	BibData          struct {
+		Link           string `xml:"link,attr"`
+		MmsID          string `xml:"mms_id"`
+		Title          string `xml:"title"`
+		ISSN           string `xml:"issn"`
+		NetworkNumbers struct {
+			Text          string `xml:",chardata"`
+			NetworkNumber string `xml:"network_number"`
+		} `xml:"network_numbers"`
+		Publisher string `xml:"publisher"`
+	} `xml:"bib_data"`
+}
+
 // MatchTypeSubType returns true if requestType is empty or matches the RequestType
 // and the requestSubType is empty or matches the RequestSubType.
 func (u UserRequest) MatchTypeSubType(requestType, requestSubType string) bool {
