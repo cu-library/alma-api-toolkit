@@ -192,12 +192,12 @@ func cleanUpCallNumbers(requester Requester, holdingRecord HoldingListMember, dr
 }
 
 func cleanupCallNumberSubfield(callNum string) string {
-	// Add a space between a number then letter pair.
+	// Add a space between a number then a letter.
 	re := regexp.MustCompile(`([0-9])([a-zA-Z])`)
 	callNum = re.ReplaceAllString(callNum, "$1 $2")
-	// Add a space between a number and a period.
-	re = regexp.MustCompile(`([0-9])\.`)
-	callNum = re.ReplaceAllString(callNum, "$1 .")
+	// Add a space between a number and a period when the period is followed by a letter.
+	re = regexp.MustCompile(`([0-9])\.([a-zA-Z])`)
+	callNum = re.ReplaceAllString(callNum, "$1 .$2")
 	// Remove the extra periods from any substring matching space period period...
 	re = regexp.MustCompile(` \.\.+'`)
 	callNum = re.ReplaceAllString(callNum, " .")
