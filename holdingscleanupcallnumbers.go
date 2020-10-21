@@ -6,12 +6,16 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/xml"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -36,12 +40,37 @@ func (m SubcommandMap) addHoldingsCleanUpCallNumbers() {
 			if len(errs) != 0 {
 				return errs
 			}
+			log.Println(len(members), "members found.")
 			holdingRecords, errs := GetHoldingsRecords(requester, members)
 			if len(errs) != 0 {
 				return errs
 			}
-			count, errs := CleanUpCallNumbers(requester, holdingRecords, *dryrun)
-			fmt.Printf("%v call numbers processed.\n", count)
+			log.Println(len(holdingRecords), "holding records found.")
+			output, errs := CleanUpCallNumbers(requester, holdingRecords, *dryrun)
+			log.Printf("%v call numbers processed.\n", len(output))
+
+			w := csv.NewWriter(os.Stdout)
+			err := w.Write([]string{"link", "original call number", "updated call number"})
+			if err != nil {
+				errs = append(errs, fmt.Errorf("error writing csv header: %w", err))
+				return errs
+			}
+
+			for _, line := range output {
+				err := w.Write(line)
+				if errs != nil {
+					errs = append(errs, fmt.Errorf("error writing line to csv: %w", err))
+					return errs
+				}
+			}
+
+			w.Flush()
+			err = w.Error()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("error after flushing csv: %w", err))
+				return errs
+			}
+
 			return errs
 		},
 	}
@@ -96,45 +125,86 @@ func getHoldingsRecords(requester Requester, member Member) (holdingRecords []Ho
 }
 
 // CleanUpCallNumbers cleans up the call numbers in the holdings records.
-func CleanUpCallNumbers(requester Requester, holdingRecords []HoldingListMember, dryrun bool) (count int, errs []error) {
+func CleanUpCallNumbers(requester Requester, holdingRecords []HoldingListMember, dryrun bool) (output [][]string, errs []error) {
 	errorsMux := sync.Mutex{}
-	countMux := sync.Mutex{}
+	outputMux := sync.Mutex{}
 	jobs := make(chan func())
 	wg := sync.WaitGroup{}
 	startWorkers(&wg, jobs)
+
 	for _, record := range holdingRecords {
 		record := record // avoid closure refering to wrong value
 		jobs <- func() {
-			err := cleanUpCallNumbers(requester, record, dryrun)
+			outputLines, err := cleanUpCallNumbers(requester, record, dryrun)
 			if err != nil {
 				errorsMux.Lock()
 				defer errorsMux.Unlock()
 				errs = append(errs, err)
 			} else {
-				countMux.Lock()
-				defer countMux.Unlock()
-				count++
+				outputMux.Lock()
+				defer outputMux.Unlock()
+				output = append(output, outputLines...)
 			}
 		}
 	}
 	close(jobs)
 	wg.Wait()
-	return count, errs
+
+	return output, errs
 }
 
-func cleanUpCallNumbers(requester Requester, holdingRecord HoldingListMember, dryrun bool) error {
+func cleanUpCallNumbers(requester Requester, holdingRecord HoldingListMember, dryrun bool) (output [][]string, err error) {
 	url, err := url.Parse(holdingRecord.Link)
 	if err != nil {
-		return err
+		return output, err
 	}
 	r, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
-		return err
+		return output, err
 	}
 	body, err := requester(r)
 	if err != nil {
-		return err
+		return output, err
 	}
-	log.Println(holdingRecord.Link, "\n", string(body))
-	return nil
+	holding := Holding{}
+	err = xml.Unmarshal(body, &holding)
+	if err != nil {
+		return output, fmt.Errorf("unmarshalling holding XML failed: %w\n%v", err, string(body))
+	}
+
+	//updated := false
+	for fi, field := range holding.Record.Datafield {
+		if field.Tag == "852" {
+			for si, sub := range field.Subfield {
+				if sub.Code == "h" || sub.Code == "i" {
+					updatedCallNum := cleanupCallNumberSubfield(sub.Text)
+					if updatedCallNum != sub.Text {
+						output = append(output, []string{holdingRecord.Link, sub.Text, updatedCallNum})
+						holding.Record.Datafield[fi].Subfield[si].Text = updatedCallNum
+						//updated = true
+					}
+				}
+			}
+		}
+	}
+
+	return output, nil
+}
+
+func cleanupCallNumberSubfield(callNum string) string {
+	// Add a space between a number then letter pair.
+	re := regexp.MustCompile(`([0-9])([a-zA-Z])`)
+	callNum = re.ReplaceAllString(callNum, "$1 $2")
+	// Add a space between a number and a period.
+	re = regexp.MustCompile(`([0-9])\.`)
+	callNum = re.ReplaceAllString(callNum, "$1 .")
+	// Remove the extra periods from any substring matching space period period...
+	re = regexp.MustCompile(` \.\.+'`)
+	callNum = re.ReplaceAllString(callNum, " .")
+	// Remove any spaces between a period and a number.
+	re = regexp.MustCompile(`\. +([0-9])`)
+	callNum = re.ReplaceAllString(callNum, ".$1")
+	// Remove any leading or trailing whitespace.
+	callNum = strings.TrimSpace(callNum)
+	return callNum
 }
