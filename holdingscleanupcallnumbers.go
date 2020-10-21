@@ -58,7 +58,7 @@ func (m SubcommandMap) addHoldingsCleanUpCallNumbers() {
 
 			for _, line := range output {
 				err := w.Write(line)
-				if errs != nil {
+				if err != nil {
 					errs = append(errs, fmt.Errorf("error writing line to csv: %w", err))
 					return errs
 				}
