@@ -179,18 +179,17 @@ func startWorkers(wg *sync.WaitGroup, jobs <-chan func()) {
 }
 
 // MakeRequestFunc returns a closure with configured parameters already set.
-func MakeRequestFunc(ctx context.Context, client *http.Client, remAPICalls chan<- int, server, key string) func(*http.Request) ([]byte, error) {
+func MakeRequestFunc(ctx context.Context, cancel context.CancelFunc, client *http.Client, remainingAPICallsThreshold int, server, key string) func(*http.Request) ([]byte, error) {
 	return func(r *http.Request) ([]byte, error) {
-		return requestWithBackoff(ctx, client, remAPICalls, server, key, r)
+		return requestWithBackoff(ctx, cancel, client, remainingAPICallsThreshold, server, key, r)
 	}
 }
 
 // requestWithBackoff makes HTTP requests until one is successful or a timeout is reached.
-// The number of remaining API calls is sent on the remAPICalls channel.
 // This function closes and drains the response bodies. https://golang.org/pkg/net/http/#Client.Do
-func requestWithBackoff(ctx context.Context, client *http.Client, remAPICalls chan<- int, server, key string, r *http.Request) (responseBody []byte, err error) {
+func requestWithBackoff(baseCtx context.Context, baseCancel context.CancelFunc, client *http.Client, remainingAPICallsThreshold int, server, key string, r *http.Request) (responseBody []byte, err error) {
 	// The initial and subsequent retries share a context with a timeout.
-	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	ctx, cancel := context.WithTimeout(baseCtx, requestTimeout)
 	defer cancel()
 
 	// The sheme should always be https.
@@ -249,11 +248,13 @@ func requestWithBackoff(ctx context.Context, client *http.Client, remAPICalls ch
 			if err != nil {
 				return responseBody, err
 			}
+			// If the number of remaining API calls is below the threshold,
+			// call the parent cancel function.
 			remainingCallsHeader := resp.Header.Get("X-Exl-Api-Remaining")
-			numRemaining, err := strconv.Atoi(remainingCallsHeader)
-			if err == nil {
-				// We try our best, but if the API returns something invalid in the X-Exl-Api-Remaining header, we continue on.
-				remAPICalls <- numRemaining
+			remainingAPICalls, err := strconv.Atoi(remainingCallsHeader)
+			if err == nil && remainingAPICalls <= remainingAPICallsThreshold {
+				log.Printf("FATAL: API call threshold of %v reached, only %v calls remaining.\n", remainingAPICallsThreshold, remainingAPICalls)
+				baseCancel()
 			}
 			// The Alma API always returns a 200 status on success, except for a successful DELETE, which returns 204.
 			if (r.Method == "DELETE" && resp.StatusCode != 204) || (r.Method != "DELETE" && resp.StatusCode != 200) {

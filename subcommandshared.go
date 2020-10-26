@@ -15,6 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func subcommandEnvPrefix(prefix, name string) string {
@@ -114,6 +117,8 @@ func GetMembers(requester Requester, set Set) (members []Member, errs []error) {
 	if set.NumberOfMembers%limit != 0 {
 		offsets++
 	}
+	bar := defaultProgressBar(offsets)
+	bar.Describe("Getting set members")
 	for i := 0; i < offsets; i++ {
 		offset := i * limit
 		jobs <- func() {
@@ -130,6 +135,8 @@ func GetMembers(requester Requester, set Set) (members []Member, errs []error) {
 				}
 			}
 		}
+		// Ignore the possible error returned by the progress bar.
+		_ = bar.Add(1)
 	}
 	close(jobs)
 	wg.Wait()
@@ -166,4 +173,21 @@ func getMembers(requester Requester, set Set, limit, offset int) (members []Memb
 		return members, fmt.Errorf("unmarshalling set XML failed: %w\n%v", err, string(body))
 	}
 	return returnedMembers.Members, nil
+}
+
+func defaultProgressBar(max int) *progressbar.ProgressBar {
+	bar := progressbar.NewOptions(
+		max,
+		progressbar.OptionSetWriter(log.Writer()),
+		progressbar.OptionSetPredictTime(true),
+		progressbar.OptionSetWidth(10),
+		progressbar.OptionThrottle(65*time.Millisecond),
+		progressbar.OptionShowCount(),
+		progressbar.OptionShowIts(),
+		progressbar.OptionClearOnFinish(),
+		progressbar.OptionSpinnerType(14),
+		progressbar.OptionFullWidth(),
+	)
+	_ = bar.RenderBlank()
+	return bar
 }

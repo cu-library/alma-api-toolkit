@@ -152,9 +152,6 @@ func main() {
 	// Our base context, used to derive all other contexts and propigrate cancel signals.
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// A channel on which the number of remaining API calls is sent.
-	remAPICalls := make(chan int)
-
 	// Cancel the base context if SIGINT or SIGTERM are recieved.
 	wg.Add(1)
 	go func() {
@@ -169,27 +166,9 @@ func main() {
 		}
 	}()
 
-	// Cancel the base context if the number of remaining API calls falls below the threshold.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case remAPICalls := <-remAPICalls:
-				if remAPICalls <= RemainingAPICallsThreshold {
-					log.Printf("FATAL: API call threshold reached, only %v calls remaining.\n", remAPICalls)
-					cancel()
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
 	// Our shared http client.
 	client := &http.Client{}
-	requestFunc := MakeRequestFunc(ctx, client, remAPICalls, *server, *key)
+	requestFunc := MakeRequestFunc(ctx, cancel, client, RemainingAPICallsThreshold, *server, *key)
 
 	err = CheckAPIandKey(requestFunc, sub.ReadAccess, sub.WriteAccess)
 	if err != nil {

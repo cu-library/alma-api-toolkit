@@ -83,6 +83,8 @@ func GetHoldingsRecords(requester Requester, members []Member) (holdingRecords [
 	jobs := make(chan func())
 	wg := sync.WaitGroup{}
 	startWorkers(&wg, jobs)
+	bar := defaultProgressBar(len(members))
+	bar.Describe("Getting holdings records")
 	for _, member := range members {
 		member := member // avoid closure refering to wrong value
 		jobs <- func() {
@@ -97,6 +99,8 @@ func GetHoldingsRecords(requester Requester, members []Member) (holdingRecords [
 				holdingRecords = append(holdingRecords, memberHoldings...)
 			}
 		}
+		// Ignore the possible error returned by the progress bar.
+		_ = bar.Add(1)
 	}
 	close(jobs)
 	wg.Wait()
@@ -131,7 +135,8 @@ func CleanUpCallNumbers(requester Requester, holdingRecords []HoldingListMember,
 	jobs := make(chan func())
 	wg := sync.WaitGroup{}
 	startWorkers(&wg, jobs)
-
+	bar := defaultProgressBar(len(holdingRecords))
+	bar.Describe("Cleaning up call numbers")
 	for _, record := range holdingRecords {
 		record := record // avoid closure refering to wrong value
 		jobs <- func() {
@@ -146,6 +151,8 @@ func CleanUpCallNumbers(requester Requester, holdingRecords []HoldingListMember,
 				output = append(output, outputLines...)
 			}
 		}
+		// Ignore the possible error returned by the progress bar.
+		_ = bar.Add(1)
 	}
 	close(jobs)
 	wg.Wait()
