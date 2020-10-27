@@ -13,12 +13,15 @@ import (
 	"sync"
 )
 
+// DefaultCircDesk is the default circulation desk code used when scanning an item in.
+const DefaultCircDesk = "DEFAULT_CIRC_DESK"
+
 func (m SubcommandMap) addItemsScanIn() {
 	fs := flag.NewFlagSet("items-scan-in", flag.ExitOnError)
 	setID := fs.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
 	setName := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
-	circdesk := fs.String("circdesk", "", "The circ desk code.")
-	library := fs.String("library", "", "The library code.")
+	circdesk := fs.String("circdesk", DefaultCircDesk, "The circ desk code. The possible values are not available through the API, see https://developers.exlibrisgroup.com/alma/apis/docs/xsd/rest_item_loan.xsd/?tags=GET.")
+	library := fs.String("library", "", "The library code. Use the conf-libaries-departments-code-tables subcommand to see the possible values.")
 	fs.Usage = func() {
 		fmt.Fprintln(flag.CommandLine.Output(), "  Scan items in.")
 		flagUsage(fs)
@@ -59,6 +62,8 @@ func ScanIn(requester Requester, members []Member, circdesk, library string) (co
 	jobs := make(chan func())
 	wg := sync.WaitGroup{}
 	startWorkers(&wg, jobs)
+	bar := defaultProgressBar(len(members))
+	bar.Describe("Scanning items in")
 	for _, member := range members {
 		member := member // avoid closure refering to wrong value
 		jobs <- func() {
@@ -73,6 +78,8 @@ func ScanIn(requester Requester, members []Member, circdesk, library string) (co
 				count++
 			}
 		}
+		// Ignore the possible error returned by the progress bar.
+		_ = bar.Add(1)
 	}
 	close(jobs)
 	wg.Wait()

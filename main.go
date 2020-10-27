@@ -22,10 +22,10 @@ import (
 
 const (
 	// ProjectName is the name of the executable, as displayed to the user in usage and version messages.
-	ProjectName string = "The Alma API Toolkit"
+	ProjectName = "The Alma API Toolkit"
 
 	// EnvPrefix is the prefix for environment variables which override unset flags.
-	EnvPrefix string = "ALMAAPITOOLKIT_"
+	EnvPrefix = "ALMAAPITOOLKIT_"
 
 	// DefaultAlmaAPIURL is the default Alma API Server.
 	DefaultAlmaAPIURL = "api-ca.hosted.exlibrisgroup.com"
@@ -58,16 +58,16 @@ func main() {
 	log.SetFlags(0)
 
 	// Define the command line flags
-	key := flag.String("key", "", "The Alma API key. Required.")
+	key := flag.String("key", "", "The Alma API key. You can manage your API keys here: https://developers.exlibrisgroup.com/manage/keys/. Required.")
 	server := flag.String("server", DefaultAlmaAPIURL, "The Alma API server to use.")
 	printVersion := flag.Bool("version", false, "Print the version then exit.")
 	printHelp := flag.Bool("help", false, "Print help for this command then exit.")
 
 	// Subcommands this tool understands.
 	subcommands := SubcommandMap{}
-	subcommands.addPrintCodeTables()
+	subcommands.addConfLibrariesDepartmentsCodeTables()
 	subcommands.addHoldingsCleanUpCallNumbers()
-	subcommands.addItemsViewRequests()
+	subcommands.addItemsRequests()
 	subcommands.addItemsCancelRequests()
 	subcommands.addItemsScanIn()
 
@@ -80,12 +80,15 @@ func main() {
 		flag.VisitAll(func(f *flag.Flag) {
 			fmt.Fprintf(flag.CommandLine.Output(), "  %v%v\n", EnvPrefix, strings.ToUpper(f.Name))
 		})
+		fmt.Fprintln(flag.CommandLine.Output(), "")
 		fmt.Fprintln(flag.CommandLine.Output(), "Subcommands:")
+		fmt.Fprintln(flag.CommandLine.Output(), "")
 		for name, sub := range subcommands {
 			fmt.Fprintf(flag.CommandLine.Output(), "%v\n", name)
 			if sub.FlagSet != nil {
 				sub.FlagSet.Usage()
 			}
+			fmt.Fprintln(flag.CommandLine.Output(), "")
 		}
 	}
 

@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/xml"
 	"flag"
@@ -26,6 +27,14 @@ func (m SubcommandMap) addHoldingsCleanUpCallNumbers() {
 	dryrun := fs.Bool("dryrun", false, "Do not perform any updates. Report on what changes would have been made.")
 	fs.Usage = func() {
 		fmt.Fprintln(flag.CommandLine.Output(), "  Clean up the call numbers on a set of holdings records.")
+		fmt.Fprintln(flag.CommandLine.Output(), "")
+		fmt.Fprintln(flag.CommandLine.Output(), "  The following rules are run on the call numbers:")
+		fmt.Fprintln(flag.CommandLine.Output(), "  - Add a space between a number then a letter.")
+		fmt.Fprintln(flag.CommandLine.Output(), "  - Add a space between a number and a period when the period is followed by a letter.")
+		fmt.Fprintln(flag.CommandLine.Output(), "  - Remove the extra periods from any substring matching space period period...")
+		fmt.Fprintln(flag.CommandLine.Output(), "  - Remove any spaces between a period and a number.")
+		fmt.Fprintln(flag.CommandLine.Output(), "  - Remove any leading or trailing whitespace.")
+		fmt.Fprintln(flag.CommandLine.Output(), "")
 		flagUsage(fs)
 	}
 	m[fs.Name()] = &Subcommand{
@@ -36,6 +45,11 @@ func (m SubcommandMap) addHoldingsCleanUpCallNumbers() {
 			return validateSetFlags(*setID, *setName)
 		},
 		Run: func(requester Requester) []error {
+			if *dryrun {
+				log.Println("Running in dry run mode, no changes will be made in Alma.")
+			} else {
+				log.Println("WARNING: Not running in dry run mode, changes will be made in Alma!")
+			}
 			members, errs := getSetMembers(requester, *setID, *setName)
 			if len(errs) != 0 {
 				return errs
@@ -50,7 +64,7 @@ func (m SubcommandMap) addHoldingsCleanUpCallNumbers() {
 			log.Printf("%v call numbers processed.\n", len(output))
 
 			w := csv.NewWriter(os.Stdout)
-			err := w.Write([]string{"link", "original call number", "updated call number"})
+			err := w.Write([]string{"Link", "Original call number", "Updated call number", "Changed in Alma"})
 			if err != nil {
 				errs = append(errs, fmt.Errorf("error writing csv header: %w", err))
 				return errs
@@ -179,19 +193,38 @@ func cleanUpCallNumbers(requester Requester, holdingRecord HoldingListMember, dr
 		return output, fmt.Errorf("unmarshalling holding XML failed: %w\n%v", err, string(body))
 	}
 
-	//updated := false
+	updated := false
 	for fi, field := range holding.Record.Datafield {
 		if field.Tag == "852" {
 			for si, sub := range field.Subfield {
 				if sub.Code == "h" || sub.Code == "i" {
 					updatedCallNum := cleanupCallNumberSubfield(sub.Text)
 					if updatedCallNum != sub.Text {
-						output = append(output, []string{holdingRecord.Link, sub.Text, updatedCallNum})
+						output = append(output, []string{holdingRecord.Link, sub.Text, updatedCallNum, "no"})
 						holding.Record.Datafield[fi].Subfield[si].Text = updatedCallNum
-						//updated = true
+						updated = true
 					}
 				}
 			}
+		}
+	}
+
+	if updated && !dryrun {
+		holdingBytes, err := xml.Marshal(holding)
+		if err != nil {
+			return output, fmt.Errorf("marshalling holding XML failed: %w", err)
+		}
+		r, err := http.NewRequest("PUT", url.String(), bytes.NewReader(holdingBytes))
+		if err != nil {
+			return output, err
+		}
+		r.Header.Add("Content-Type", "application/xml")
+		_, err = requester(r)
+		if err != nil {
+			return output, err
+		}
+		for i, line := range output {
+			output[i][len(line)-1] = "yes"
 		}
 	}
 

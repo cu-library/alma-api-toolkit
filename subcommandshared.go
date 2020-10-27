@@ -112,17 +112,17 @@ func GetMembers(requester Requester, set Set) (members []Member, errs []error) {
 	jobs := make(chan func())
 	wg := sync.WaitGroup{}
 	startWorkers(&wg, jobs)
-	offsets := set.NumberOfMembers / limit
+	offsets := set.NumberOfMembers / LimitParam
 	// If there's a remainder, we need the extra offset.
-	if set.NumberOfMembers%limit != 0 {
+	if set.NumberOfMembers%LimitParam != 0 {
 		offsets++
 	}
 	bar := defaultProgressBar(offsets)
 	bar.Describe("Getting set members")
 	for i := 0; i < offsets; i++ {
-		offset := i * limit
+		offset := i * LimitParam
 		jobs <- func() {
-			members, err := getMembers(requester, set, limit, offset)
+			members, err := getMembers(requester, set, LimitParam, offset)
 			if err != nil {
 				errorsMux.Lock()
 				defer errorsMux.Unlock()

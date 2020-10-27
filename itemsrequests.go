@@ -14,8 +14,8 @@ import (
 	"sync"
 )
 
-func (m SubcommandMap) addItemsViewRequests() {
-	fs := flag.NewFlagSet("items-view-requests", flag.ExitOnError)
+func (m SubcommandMap) addItemsRequests() {
+	fs := flag.NewFlagSet("items-requests", flag.ExitOnError)
 	setID := fs.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
 	setName := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
 	fs.Usage = func() {
@@ -35,10 +35,14 @@ func (m SubcommandMap) addItemsViewRequests() {
 				return errs
 			}
 			requests, errs := ViewRequests(requester, members)
+			typeSubTypeCount := map[string]int{}
 			for _, request := range requests {
-				fmt.Printf("%#v\n", request)
+				typeSubType := fmt.Sprintf("Type: %v Subtype: %v", request.RequestType, request.RequestSubType)
+				typeSubTypeCount[typeSubType] = typeSubTypeCount[typeSubType] + 1
 			}
-			fmt.Printf("%v requests found.\n", len(requests))
+			for typeSubType, count := range typeSubTypeCount {
+				fmt.Println(typeSubType, "Count:", count)
+			}
 			return errs
 		},
 	}
@@ -51,6 +55,8 @@ func ViewRequests(requester Requester, members []Member) (requests []UserRequest
 	jobs := make(chan func())
 	wg := sync.WaitGroup{}
 	startWorkers(&wg, jobs)
+	bar := defaultProgressBar(len(members))
+	bar.Describe("Getting user requests")
 	for _, member := range members {
 		member := member // avoid closure refering to wrong value
 		jobs <- func() {
@@ -65,6 +71,8 @@ func ViewRequests(requester Requester, members []Member) (requests []UserRequest
 				requests = append(requests, memberRequests...)
 			}
 		}
+		// Ignore the possible error returned by the progress bar.
+		_ = bar.Add(1)
 	}
 	close(jobs)
 	wg.Wait()

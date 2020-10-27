@@ -57,6 +57,8 @@ func CancelRequests(requester Requester, members []Member, requestType, requestS
 	jobs := make(chan func())
 	wg := sync.WaitGroup{}
 	startWorkers(&wg, jobs)
+	bar := defaultProgressBar(len(members))
+	bar.Describe("Cancelling user requests")
 	for _, member := range members {
 		member := member // avoid closure refering to wrong value
 		jobs <- func() {
@@ -71,6 +73,8 @@ func CancelRequests(requester Requester, members []Member, requestType, requestS
 				count++
 			}
 		}
+		// Ignore the possible error returned by the progress bar.
+		_ = bar.Add(1)
 	}
 	close(jobs)
 	wg.Wait()
