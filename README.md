@@ -32,18 +32,20 @@ The set must be itemized and made public before processing with this tool.
 ### holdings-clean-up-call-numbers
 
 ```
-Before	After
-BR115.C5L43	BR115 .C5 L43
-BS410.V452 V. 31	BS410 .V452 V.31
+Before                After
+BR115.C5L43           BR115 .C5 L43
+BS410.V452 V. 31      BS410 .V452 V.31
 ```
 
 ### items-requests
 
 View user requests on items in a given set. The item request type and subtype can then be used to cancel requests using the `items-cancel-requests` subcommand. Only the type and subtype are printed, as that is the information that is needed to cancel the requests.
 
-## items-cancel-requests
+### items-cancel-requests
 
 Cancel user requests of a type and/or subtype on items in the given set.
+
+## Help output
 
 ```
 alma-api-toolkit [FLAGS] subcommand [SUBCOMMAND FLAGS]
