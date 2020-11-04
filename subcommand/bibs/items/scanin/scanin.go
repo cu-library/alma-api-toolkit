@@ -65,7 +65,7 @@ func Config() *subcommand.Config {
 				for _, err := range errs {
 					log.Println(err)
 				}
-				return fmt.Errorf("an error occured when retrieving the members of %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when retrieving the members of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			items := []api.Item{}
 			errs = []error{}
@@ -76,8 +76,6 @@ func Config() *subcommand.Config {
 			for _, item := range items {
 				scannedInMap[item.Barcode] = true
 			}
-			fmt.Printf("Scanned in members of set %v (%v).\n", set.Name, set.ID)
-			fmt.Println()
 			w := csv.NewWriter(os.Stdout)
 			err = w.Write([]string{"MMS ID", "Title", "Author", "Call Number", "Barcode", "Scanned in in Alma"})
 			if err != nil {
@@ -101,14 +99,12 @@ func Config() *subcommand.Config {
 			if err != nil {
 				return fmt.Errorf("error after flushing csv: %w", err)
 			}
-			fmt.Println()
-			fmt.Printf("%v successful scan in operations.\n", len(items))
+			log.Printf("%v successful scan in operations.\n", len(items))
 			if len(errs) != 0 {
-				fmt.Printf("\n%v Errors:\n", len(errs))
 				for _, err := range errs {
-					fmt.Println(err)
+					log.Println(err)
 				}
-				return fmt.Errorf("at least one error occured when scanning in members of %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when scanning in members of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			return nil
 		},

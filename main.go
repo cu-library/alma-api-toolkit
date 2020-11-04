@@ -178,7 +178,7 @@ func main() {
 	// Run the subcommand.
 	err = sub.Run(ctx, c)
 	if err != nil {
-		log.Println("FATAL: %w", err)
+		log.Printf("FATAL: %v.\n", err)
 		cancel()
 		wg.Wait()
 		os.Exit(1)

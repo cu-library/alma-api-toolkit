@@ -61,14 +61,14 @@ func Config() *subcommand.Config {
 				for _, err := range errs {
 					log.Println(err)
 				}
-				return fmt.Errorf("an error occured when retrieving the members of %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when retrieving the members of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			requests, errs := c.ItemMembersUserRequests(ctx, members)
 			if len(errs) != 0 {
 				for _, err := range errs {
 					log.Println(err)
 				}
-				return fmt.Errorf("an error occured when retrieving the user requests on members of %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when retrieving requests on members of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			matching := []api.UserRequest{}
 			for _, request := range requests {
@@ -89,8 +89,6 @@ func Config() *subcommand.Config {
 			for _, request := range cancelled {
 				cancelledMap[request.Member.Link] = true
 			}
-			fmt.Printf("Cancelling user requests on members of set %v (%v).\n", set.Name, set.ID)
-			fmt.Println()
 			w := csv.NewWriter(os.Stdout)
 			err = w.Write([]string{"Item Link", "Request ID", "Request Type", "Request Subtype", "Matched type and subtype", "Cancelled in Alma"})
 			if err != nil {
@@ -120,23 +118,12 @@ func Config() *subcommand.Config {
 			if err != nil {
 				return fmt.Errorf("error after flushing csv: %w", err)
 			}
-			fmt.Println()
-			fmt.Printf("%v requests cancelled.\n", len(cancelled))
+			log.Printf("%v requests cancelled.\n", len(cancelled))
 			if len(errs) != 0 {
-				fmt.Printf("\n %v Errors:\n", len(errs))
 				for _, err := range errs {
-					fmt.Println(err)
+					log.Println(err)
 				}
-				return fmt.Errorf("at least one error occured when retrieving requests on members of %v (ID %v)", set.Name, set.ID)
-			}
-			fmt.Println()
-			fmt.Printf("%v requests found.\n", len(requests))
-			if len(errs) != 0 {
-				fmt.Printf("\n %v Errors:\n", len(errs))
-				for _, err := range errs {
-					fmt.Println(err)
-				}
-				return fmt.Errorf("at least one error occured when retrieving requests on members of %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when cancelling requests on members of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			return nil
 		},

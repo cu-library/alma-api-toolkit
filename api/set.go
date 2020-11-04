@@ -66,7 +66,7 @@ func (c Client) SetFromNameOrID(ctx context.Context, name, ID string) (set Set, 
 			return set, fmt.Errorf("getting set from ID failed: %w", err)
 		}
 	}
-	return set, fmt.Errorf("could not find set for name %v or ID %v", name, ID)
+	return set, fmt.Errorf("could not find set for name '%v' or ID '%v'", name, ID)
 }
 
 // SetFromName returns the set with the given set name.
@@ -95,7 +95,7 @@ func (c Client) SetFromName(ctx context.Context, name string) (set Set, err erro
 			return set, nil
 		}
 	}
-	return set, fmt.Errorf("no set with name %v found", name)
+	return set, fmt.Errorf("no set with name '%v' found", name)
 }
 
 // SetFromID returns the set with the given set ID.

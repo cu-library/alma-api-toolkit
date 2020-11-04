@@ -63,21 +63,21 @@ func Config() *subcommand.Config {
 				for _, err := range errs {
 					log.Println(err)
 				}
-				return fmt.Errorf("an error occured when retrieving the members of %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when retrieving the members of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			holdingListMembers, errs := c.BibMembersHoldingListMembers(ctx, members)
 			if len(errs) != 0 {
 				for _, err := range errs {
 					log.Println(err)
 				}
-				return fmt.Errorf("an error occured when retrieving the holding list members of %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when retrieving the holding list members of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			holdings, errs := c.HoldingListMembersToHoldings(ctx, holdingListMembers)
 			if len(errs) != 0 {
 				for _, err := range errs {
 					log.Println(err)
 				}
-				return fmt.Errorf("an error occured when retrieving the holdings records of %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when retrieving the holdings records of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			cleaned := CleanUpCallNumbers(holdings)
 			cleanedMap := map[string]api.Holding{}
@@ -93,9 +93,6 @@ func Config() *subcommand.Config {
 			for _, holding := range updated {
 				updatedMap[holding.HoldingListMember.Link] = true
 			}
-			fmt.Printf("Cleaning call numbers of members of set %v (%v).\n", set.Name, set.ID)
-			fmt.Printf("Dryrun mode: %v\n", *dryrun)
-			fmt.Println()
 			w := csv.NewWriter(os.Stdout)
 			err = w.Write([]string{"Link", "Original call number", "Updated call number", "Changed in Alma"})
 			if err != nil {
@@ -128,14 +125,12 @@ func Config() *subcommand.Config {
 			if err != nil {
 				return fmt.Errorf("error writing line to csv: %w", err)
 			}
-			fmt.Println()
-			fmt.Printf("%v successful updates to call numbers.\n", len(updated))
+			log.Printf("%v successful updates to call numbers.\n", len(updated))
 			if len(errs) != 0 {
-				fmt.Printf("\n%v Errors:\n", len(errs))
 				for _, err := range errs {
-					fmt.Println(err)
+					log.Println(err)
 				}
-				return fmt.Errorf("at least one error occured when updating the call numbers of holdings records of bibs in %v (ID %v)", set.Name, set.ID)
+				return fmt.Errorf("%v error(s) occured when updating the call numbers of holdings records of bibs in '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
 			return nil
 		},
