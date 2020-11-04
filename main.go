@@ -78,7 +78,7 @@ func main() {
 			}
 			fmt.Fprintln(flag.CommandLine.Output(), "  Environment variables read when flag is unset:")
 			sub.FlagSet.VisitAll(func(f *flag.Flag) {
-				fmt.Fprintf(flag.CommandLine.Output(), "  %v%v%v\n", EnvPrefix, strings.ToUpper(name), strings.ToUpper(f.Name))
+				fmt.Fprintf(flag.CommandLine.Output(), "  %v%v\n", subcommandEnvPrefix(EnvPrefix, name), strings.ToUpper(f.Name))
 			})
 			fmt.Fprintln(flag.CommandLine.Output(), "")
 		}
@@ -130,7 +130,7 @@ func main() {
 	_ = sub.FlagSet.Parse(flag.Args()[1:])
 	// If any flags have not been set, see if there are
 	// environment variables that set them.
-	err = overridefromenv.Override(sub.FlagSet, EnvPrefix+subName)
+	err = overridefromenv.Override(sub.FlagSet, subcommandEnvPrefix(EnvPrefix, subName))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -188,4 +188,8 @@ func main() {
 	cancel()
 	wg.Wait()
 	os.Exit(0)
+}
+
+func subcommandEnvPrefix(prefix, name string) string {
+	return prefix + strings.ToUpper(strings.ReplaceAll(name, "-", "")) + "_"
 }
