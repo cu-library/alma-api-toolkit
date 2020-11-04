@@ -28,7 +28,7 @@ func Config() *subcommand.Config {
 	return &subcommand.Config{
 		ReadAccess: []string{"/almaws/v1/conf"},
 		FlagSet:    fs,
-		Run: func(ctx context.Context, c api.Client) error {
+		Run: func(ctx context.Context, c *api.Client) error {
 			libraries, err := c.Libraries(ctx)
 			if err != nil {
 				return err

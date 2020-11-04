@@ -33,7 +33,7 @@ func Config() *subcommand.Config {
 		ValidateFlags: func() error {
 			return subcommand.ValidateSetNameAndSetIDFlags(*name, *ID)
 		},
-		Run: func(ctx context.Context, c api.Client) error {
+		Run: func(ctx context.Context, c *api.Client) error {
 			set, err := c.SetFromNameOrID(ctx, *ID, *name)
 			if err != nil {
 				return err

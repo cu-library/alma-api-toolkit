@@ -43,7 +43,7 @@ func Config() *subcommand.Config {
 			}
 			return nil
 		},
-		Run: func(ctx context.Context, c api.Client) error {
+		Run: func(ctx context.Context, c *api.Client) error {
 			if *dryrun {
 				log.Println("Running in dry run mode, no changes will be made in Alma.")
 			} else {

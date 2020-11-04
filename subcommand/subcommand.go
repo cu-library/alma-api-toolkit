@@ -16,11 +16,11 @@ import (
 
 // Config stores information about subcommands.
 type Config struct {
-	ReadAccess    []string                                // The API endpoints which will require read-only access.
-	WriteAccess   []string                                // The API endpoints which will require write access.
-	FlagSet       *flag.FlagSet                           // The Flag set for this subcommand.
-	ValidateFlags func() error                            // A function which validates that the flagset is valid after it is parsed.
-	Run           func(context.Context, api.Client) error // Call this function for this subcommand.
+	ReadAccess    []string                                 // The API endpoints which will require read-only access.
+	WriteAccess   []string                                 // The API endpoints which will require write access.
+	FlagSet       *flag.FlagSet                            // The Flag set for this subcommand.
+	ValidateFlags func() error                             // A function which validates that the flagset is valid after it is parsed.
+	Run           func(context.Context, *api.Client) error // Call this function for this subcommand.
 }
 
 // Registry maps the string from the command line to the properties of a subcommand.

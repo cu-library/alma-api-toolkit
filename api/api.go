@@ -61,7 +61,7 @@ func (e ThresholdReachedError) Error() string {
 }
 
 // CheckAPIandKey ensures the API is available and that the key provided has the right permissions.
-func (c Client) CheckAPIandKey(ctx context.Context, readAccess, writeAccess []string) error {
+func (c *Client) CheckAPIandKey(ctx context.Context, readAccess, writeAccess []string) error {
 	for _, endpoint := range readAccess {
 		r, err := http.NewRequest("GET", endpoint+"/test", nil)
 		if err != nil {
@@ -89,7 +89,7 @@ func (c Client) CheckAPIandKey(ctx context.Context, readAccess, writeAccess []st
 // If a request returns an error, it is retried until RequestTimeout is reached.
 // The response bodies are copied or drained, then closed.
 // See https://golang.org/pkg/net/http/#Client.Do
-func (c Client) Do(ctx context.Context, r *http.Request) (body []byte, err error) {
+func (c *Client) Do(ctx context.Context, r *http.Request) (body []byte, err error) {
 	// Create a new context with a timeout so we don't retry forever.
 	ctx, cancel := context.WithTimeout(ctx, RequestTimeout)
 	defer cancel()

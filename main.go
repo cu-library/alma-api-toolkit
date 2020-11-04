@@ -164,7 +164,7 @@ func main() {
 	}()
 
 	// Initialize the API client.
-	c := api.Client{Client: &http.Client{}, Host: *host, Key: *key, Threshold: *threshold}
+	c := &api.Client{Client: &http.Client{}, Host: *host, Key: *key, Threshold: *threshold}
 
 	// Ensure the provided key can access the API endpoints it needs to for the requested subcommand.
 	err = c.CheckAPIandKey(ctx, sub.ReadAccess, sub.WriteAccess)
