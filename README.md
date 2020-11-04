@@ -15,37 +15,7 @@ This toolkit improves reliability by retrying failed HTTP calls if required. HTT
 
 Sets processed by these subcommands must be itemized and made public.
 
-To remove items from a work order, first cancel requests on those items then scan them in.
-
-## Subcommand Notes
-
-### po-line-update-renewal-date-and-renewal-period (not done)
-
-Update the renewal date and renewal period for PO Lines in Alma
-
-The set must be itemized and made public before processing with this tool.
-
-**CAUTION**: There is a known issue with dates and timezone handling. In some cases, the renewal date is set to the day before the one requested. Also, in some other cases, other date fields in the record (like Expected Activation Date) are set to a new value. The new value isn't being set explicitly by this tool. It is the old value of the field minus one day. The bug is confirmed by the API team: https://developers.exlibrisgroup.com/forums/topic/show-and-ask-script-to-update-po-line-records/#post-66403
-
-**CAUTION**: Due to limitations in the Alma API, the notes fields for any PO Line record updated using this tool will all have 'Created On' and 'Updated On' set to today's date, and 'Updated By' will be changed to 'API, Ex Libris'.
-
-### holdings-clean-up-call-numbers
-
-```
-Before                After
-BR115.C5L43           BR115 .C5 L43
-BS410.V452 V. 31      BS410 .V452 V.31
-```
-
-### items-requests
-
-View user requests on items in a given set. The item request type and subtype can then be used to cancel requests using the `items-cancel-requests` subcommand. Only the type and subtype are printed, as that is the information that is needed to cancel the requests.
-
-### items-cancel-requests
-
-Cancel user requests of a type and/or subtype on items in the given set.
-
-## Help output
+To remove items from a work order, first cancel requests on those items, then scan them in.
 
 ```
 alma-api-toolkit [FLAGS] subcommand [SUBCOMMAND FLAGS]
@@ -116,6 +86,7 @@ conf-libaries-departments-code-tables
 
 holdings-clean-up-call-numbers
   Clean up the call numbers on a set of holdings records.
+  A CSV report of the changes made is printed to stdout.
 
   The following rules are run on the call numbers:
   - Add a space between a number then a letter.
@@ -135,3 +106,29 @@ holdings-clean-up-call-numbers
   ALMAAPITOOLKIT_HOLDINGSCLEANUPCALLNUMBERS_SETID
   ALMAAPITOOLKIT_HOLDINGSCLEANUPCALLNUMBERS_SETNAME
 ```
+
+## Subcommand Notes
+
+### po-line-update-renewal-date-and-renewal-period (not done)
+
+Update the renewal date and renewal period for PO Lines in Alma
+
+The set must be itemized and made public before processing with this tool.
+
+**CAUTION**: There is a known issue with dates and timezone handling. In some cases, the renewal date is set to the day before the one requested. Also, in some other cases, other date fields in the record (like Expected Activation Date) are set to a new value. The new value isn't being set explicitly by this tool. It is the old value of the field minus one day. The bug is confirmed by the API team: https://developers.exlibrisgroup.com/forums/topic/show-and-ask-script-to-update-po-line-records/#post-66403
+
+**CAUTION**: Due to limitations in the Alma API, the notes fields for any PO Line record updated using this tool will all have 'Created On' and 'Updated On' set to today's date, and 'Updated By' will be changed to 'API, Ex Libris'.
+
+### holdings-clean-up-call-numbers
+
+This subcommand outputs a CSV report of what holdings records had their call numbers updated. You can redirect the output to a file using your shell.
+
+```
+Before                After
+BR115.C5L43           BR115 .C5 L43
+BS410.V452 V. 31      BS410 .V452 V.31
+```
+
+### items-requests
+
+View user requests on items in a given set. The item request type and subtype can then be used to cancel requests using the `items-cancel-requests` subcommand. Only the type and subtype are printed, as that is the information that is needed to cancel the requests.

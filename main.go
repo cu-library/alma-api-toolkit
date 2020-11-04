@@ -3,6 +3,7 @@
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE.txt file.
 
+// Command almatoolkit is a set of commands which run against the Alma API.
 package main
 
 import (
@@ -18,40 +19,26 @@ import (
 	"syscall"
 
 	"github.com/cu-library/overridefromenv"
+
+	"github.com/cu-library/almatoolkit/api"
+	"github.com/cu-library/almatoolkit/subcommand"
+	"github.com/cu-library/almatoolkit/subcommand/bibs/cleanupcallnumbers"
+	"github.com/cu-library/almatoolkit/subcommand/bibs/items/cancelrequests"
+	"github.com/cu-library/almatoolkit/subcommand/bibs/items/requests"
+	"github.com/cu-library/almatoolkit/subcommand/bibs/items/scanin"
+	"github.com/cu-library/almatoolkit/subcommand/conf/dump"
 )
 
 const (
 	// ProjectName is the name of the executable, as displayed to the user in usage and version messages.
-	ProjectName = "The Alma API Toolkit"
+	ProjectName = "The Alma Toolkit"
 
 	// EnvPrefix is the prefix for environment variables which override unset flags.
-	EnvPrefix = "ALMAAPITOOLKIT_"
-
-	// DefaultAlmaAPIURL is the default Alma API Server.
-	DefaultAlmaAPIURL = "api-ca.hosted.exlibrisgroup.com"
-
-	// RemainingAPICallsThreshold is the minimum number of API calls remaining before the tool automatically stops working.
-	RemainingAPICallsThreshold = 50000
+	EnvPrefix = "ALMATOOLKIT_"
 )
 
 // A version flag, which should be overwritten when building using ldflags.
 var version = "devel"
-
-// Requester defines functions which send the request and returns the body bytes and error.
-type Requester func(*http.Request) ([]byte, error)
-
-// Subcommand stores information about subcommands.
-type Subcommand struct {
-	ReadAccess    []string                // The API endpoints which will require read-only access.
-	WriteAccess   []string                // The API endpoints which will require write access.
-	FlagSet       *flag.FlagSet           // The Flag set for this subcommand.
-	ValidateFlags func() error            // A function which validates that the flagset is valid after it is parsed.
-	Run           func(Requester) []error // Call this function for this subcommand.
-}
-
-// SubcommandMap maps the string from the command line to the properties of a subcommand.
-// In practice, the key is always the same as the FlagSet's name.
-type SubcommandMap map[string]*Subcommand
 
 func main() {
 	// Set the prefix of the default logger to the empty string.
@@ -59,17 +46,18 @@ func main() {
 
 	// Define the command line flags
 	key := flag.String("key", "", "The Alma API key. You can manage your API keys here: https://developers.exlibrisgroup.com/manage/keys/. Required.")
-	server := flag.String("server", DefaultAlmaAPIURL, "The Alma API server to use.")
+	host := flag.String("host", api.DefaultAlmaAPIHost, "The Alma API host domain name to use.")
+	threshold := flag.Int("threshold", api.DefaultThreshold, "The minimum number of API calls remaining before the tool automatically stops working.")
 	printVersion := flag.Bool("version", false, "Print the version then exit.")
-	printHelp := flag.Bool("help", false, "Print help for this command then exit.")
+	printHelp := flag.Bool("help", false, "Print help documentation then exit.")
 
 	// Subcommands this tool understands.
-	subcommands := SubcommandMap{}
-	subcommands.addConfLibrariesDepartmentsCodeTables()
-	subcommands.addHoldingsCleanUpCallNumbers()
-	subcommands.addItemsRequests()
-	subcommands.addItemsCancelRequests()
-	subcommands.addItemsScanIn()
+	registry := subcommand.Registry{}
+	dump.RegisterWith(registry)
+	cleanupcallnumbers.RegisterWith(registry)
+	requests.RegisterWith(registry)
+	cancelrequests.RegisterWith(registry)
+	scanin.RegisterWith(registry)
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "%v\n", ProjectName)
@@ -83,11 +71,15 @@ func main() {
 		fmt.Fprintln(flag.CommandLine.Output(), "")
 		fmt.Fprintln(flag.CommandLine.Output(), "Subcommands:")
 		fmt.Fprintln(flag.CommandLine.Output(), "")
-		for name, sub := range subcommands {
+		for name, sub := range registry {
 			fmt.Fprintf(flag.CommandLine.Output(), "%v\n", name)
 			if sub.FlagSet != nil {
 				sub.FlagSet.Usage()
 			}
+			fmt.Fprintln(flag.CommandLine.Output(), "  Environment variables read when flag is unset:")
+			sub.FlagSet.VisitAll(func(f *flag.Flag) {
+				fmt.Fprintf(flag.CommandLine.Output(), "  %v%v%v\n", EnvPrefix, strings.ToUpper(name), strings.ToUpper(f.Name))
+			})
 			fmt.Fprintln(flag.CommandLine.Output(), "")
 		}
 	}
@@ -125,7 +117,7 @@ func main() {
 		os.Exit(1)
 	}
 	subName := flag.Args()[0]
-	sub, valid := subcommands[subName]
+	sub, valid := registry[subName]
 	if !valid {
 		log.Printf("FATAL: \"%v\" is not a valid subcommand.\n", subName)
 		flag.Usage()
@@ -136,7 +128,7 @@ func main() {
 	_ = sub.FlagSet.Parse(flag.Args()[1:])
 	// If any flags have not been set, see if there are
 	// environment variables that set them.
-	err = overridefromenv.Override(sub.FlagSet, subcommandEnvPrefix(EnvPrefix, subName))
+	err = overridefromenv.Override(sub.FlagSet, EnvPrefix+subName)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -169,29 +161,28 @@ func main() {
 		}
 	}()
 
-	// Our shared http client.
-	client := &http.Client{}
-	requestFunc := MakeRequestFunc(ctx, cancel, client, RemainingAPICallsThreshold, *server, *key)
+	// Initialize the API client.
+	c := api.Client{Client: &http.Client{}, Host: *host, Key: *key, Threshold: *threshold}
 
-	err = CheckAPIandKey(requestFunc, sub.ReadAccess, sub.WriteAccess)
+	// Ensure the provided key can access the API endpoints it needs to for the requested subcommand.
+	err = c.CheckAPIandKey(ctx, sub.ReadAccess, sub.WriteAccess)
 	if err != nil {
 		cancel()
 		wg.Wait()
-		log.Printf("FATAL: API Check failed, %v.\n", err)
+		log.Printf("FATAL: API access check failed, %v.\n", err)
 		os.Exit(1)
 	}
 
-	errs := sub.Run(requestFunc)
-	if len(errs) != 0 {
+	// Run the subcommand.
+	err = sub.Run(ctx, c)
+	if err != nil {
+		log.Println("FATAL: %w", err)
 		cancel()
 		wg.Wait()
-		log.Println("FATAL: Error(s) occured:")
-		for _, err := range errs {
-			log.Println("  ", err)
-		}
 		os.Exit(1)
 	}
 
+	// No errors, cancel the context, wait on the WaitGroup, then exit with 0 status.
 	cancel()
 	wg.Wait()
 	os.Exit(0)
