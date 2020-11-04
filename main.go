@@ -53,11 +53,11 @@ func main() {
 
 	// Subcommands this tool understands.
 	registry := subcommand.Registry{}
-	dump.RegisterWith(registry)
-	cleanupcallnumbers.RegisterWith(registry)
-	requests.RegisterWith(registry)
-	cancelrequests.RegisterWith(registry)
-	scanin.RegisterWith(registry)
+	registry.Register(dump.Config())
+	registry.Register(cleanupcallnumbers.Config())
+	registry.Register(requests.Config())
+	registry.Register(cancelrequests.Config())
+	registry.Register(scanin.Config())
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "%v\n", ProjectName)
@@ -108,6 +108,8 @@ func main() {
 	// Check that required flags are set.
 	if *key == "" {
 		log.Fatal("FATAL: An Alma API key is required.")
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	// Was a subcommand provided? Was it valid?

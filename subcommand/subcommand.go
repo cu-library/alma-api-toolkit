@@ -27,6 +27,11 @@ type Config struct {
 // The key is always the same as the FlagSet's name.
 type Registry map[string]*Config
 
+// Register the config with the registry.
+func (r Registry) Register(c *Config) {
+	r[c.FlagSet.Name()] = c
+}
+
 // ValidateSetNameAndSetIDFlags ensures set name XOR set ID.
 func ValidateSetNameAndSetIDFlags(name, ID string) error {
 	if name == "" && ID == "" {

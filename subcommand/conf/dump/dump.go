@@ -15,8 +15,8 @@ import (
 	"github.com/cu-library/almatoolkit/subcommand"
 )
 
-// RegisterWith registers this subcommand with a subcommand registry.
-func RegisterWith(m subcommand.Registry) {
+// Config returns a new subcommand config.
+func Config() *subcommand.Config {
 	fs := flag.NewFlagSet("conf-dump", flag.ExitOnError)
 	fs.Usage = func() {
 		fmt.Fprintln(flag.CommandLine.Output(), "  Print the output of the library and departments endpoints, and the known code tables.")
@@ -25,7 +25,7 @@ func RegisterWith(m subcommand.Registry) {
 		fmt.Fprintln(flag.CommandLine.Output(), "  This command is meant to help run other subcommands which sometimes need a particular code")
 		fmt.Fprintln(flag.CommandLine.Output(), "  from a code table or the code for a library or department.")
 	}
-	m[fs.Name()] = &subcommand.Config{
+	return &subcommand.Config{
 		ReadAccess: []string{"/almaws/v1/conf"},
 		FlagSet:    fs,
 		Run: func(ctx context.Context, c api.Client) error {

@@ -18,8 +18,8 @@ import (
 	"github.com/cu-library/almatoolkit/subcommand"
 )
 
-// RegisterWith registers this subcommand with a subcommand registry.
-func RegisterWith(m subcommand.Registry) {
+// Config returns a new subcommand config.
+func Config() *subcommand.Config {
 	fs := flag.NewFlagSet("items-cancel-requests", flag.ExitOnError)
 	ID := fs.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
 	name := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
@@ -29,7 +29,7 @@ func RegisterWith(m subcommand.Registry) {
 	fs.Usage = func() {
 		fmt.Fprintln(flag.CommandLine.Output(), "  Cancel item requests of type and/or subtype on items in the given set.")
 	}
-	m[fs.Name()] = &subcommand.Config{
+	return &subcommand.Config{
 		ReadAccess:  []string{"/almaws/v1/conf"},
 		WriteAccess: []string{"/almaws/v1/bibs"},
 		FlagSet:     fs,

@@ -20,8 +20,8 @@ import (
 	"github.com/cu-library/almatoolkit/subcommand"
 )
 
-// RegisterWith registers this subcommand with a subcommand registry.
-func RegisterWith(m subcommand.Registry) {
+// Config returns a new subcommand config.
+func Config() *subcommand.Config {
 	fs := flag.NewFlagSet("bibs-clean-up-call-numbers", flag.ExitOnError)
 	ID := fs.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
 	name := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
@@ -38,7 +38,7 @@ func RegisterWith(m subcommand.Registry) {
 		fmt.Fprintln(flag.CommandLine.Output(), "  - Remove any leading or trailing whitespace.")
 		fmt.Fprintln(flag.CommandLine.Output(), "")
 	}
-	m[fs.Name()] = &subcommand.Config{
+	return &subcommand.Config{
 		ReadAccess:  []string{"/almaws/v1/conf"},
 		WriteAccess: []string{"/almaws/v1/bibs"},
 		FlagSet:     fs,
