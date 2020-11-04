@@ -27,9 +27,8 @@ func Config() *subcommand.Config {
 		fmt.Fprintln(flag.CommandLine.Output(), "  View requests on items in the given set.")
 	}
 	return &subcommand.Config{
-		ReadAccess:  []string{"/almaws/v1/conf"},
-		WriteAccess: []string{"/almaws/v1/bibs"},
-		FlagSet:     fs,
+		ReadAccess: []string{"/almaws/v1/conf", "/almaws/v1/bibs"},
+		FlagSet:    fs,
 		ValidateFlags: func() error {
 			return subcommand.ValidateSetNameAndSetIDFlags(*name, *ID)
 		},
