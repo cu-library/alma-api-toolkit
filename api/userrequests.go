@@ -23,6 +23,8 @@ type UserRequest struct {
 	SubType string `xml:"request_sub_type"`
 	// Member is an optional field for the 'originating' item member.
 	Member Member `xml:"-"`
+	// Link is an optional field for the user request link.
+	Link string `xml:"-"`
 }
 
 // MatchTypeSubType returns true if rtype is empty or matches the request's Type
@@ -92,20 +94,21 @@ func (c Client) ItemMemberUserRequests(ctx context.Context, member Member) (requ
 	if err != nil {
 		return requests, fmt.Errorf("unmarshalling user requests XML failed: %w\n%v", err, string(body))
 	}
-	for i := range returnedRequests.UserRequests {
+	for i, request := range returnedRequests.UserRequests {
 		returnedRequests.UserRequests[i].Member = member
+		returnedRequests.UserRequests[i].Link = member.Link + "/requests/" + request.ID
 	}
 	return returnedRequests.UserRequests, nil
 }
 
 // UserRequestsCancel cancels user requests.
-func (c Client) UserRequestsCancel(ctx context.Context, requests []UserRequest) (cancelled []UserRequest, errs []error) {
+func (c Client) UserRequestsCancel(ctx context.Context, requests []UserRequest, reason, note string) (cancelled []UserRequest, errs []error) {
 	ctx, cancel, em, om, jobs, wg, bar := StartConcurrent(ctx, len(requests), "Cancelling user requests")
 	defer cancel()
 	for _, request := range requests {
 		request := request // avoid closure refering to wrong value
 		jobs <- func() {
-			err := c.UserRequestCancel(ctx, request)
+			err := c.UserRequestCancel(ctx, request, reason, note)
 			if err != nil {
 				var over *ThresholdReachedError
 				if errors.As(err, &over) {
@@ -129,14 +132,18 @@ func (c Client) UserRequestsCancel(ctx context.Context, requests []UserRequest) 
 }
 
 // UserRequestCancel cancels a user request.
-func (c Client) UserRequestCancel(ctx context.Context, request UserRequest) error {
-	if request.Member.Link == "" {
-		return fmt.Errorf("the user request did not have an associated member link")
+func (c Client) UserRequestCancel(ctx context.Context, request UserRequest, reason, note string) error {
+	if request.Link == "" {
+		return fmt.Errorf("the user request did not have an associated link")
 	}
-	url, err := url.Parse(request.Member.Link + "/requests/" + request.ID)
+	url, err := url.Parse(request.Link)
 	if err != nil {
 		return err
 	}
+	q := url.Query()
+	q.Set("reason", reason)
+	q.Set("note", note)
+	url.RawQuery = q.Encode()
 	r, err := http.NewRequest("DELETE", url.String(), nil)
 	if err != nil {
 		return err

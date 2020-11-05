@@ -58,12 +58,12 @@ func Config(envPrefix string) *subcommand.Config {
 				log.Println(typeSubType, "Count:", count)
 			}
 			w := csv.NewWriter(os.Stdout)
-			err = w.Write([]string{"Item Link", "Request ID", "Request Type", "Request Subtype"})
+			err = w.Write([]string{"Request Link", "Request Type", "Request Subtype"})
 			if err != nil {
 				return fmt.Errorf("error writing csv header: %w", err)
 			}
 			for _, request := range requests {
-				err := w.Write([]string{request.Member.Link, request.ID, request.Type, request.SubType})
+				err := w.Write([]string{request.Link, request.Type, request.SubType})
 				if err != nil {
 					return fmt.Errorf("error writing line to csv: %w", err)
 				}

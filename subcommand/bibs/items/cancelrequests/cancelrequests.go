@@ -25,6 +25,8 @@ func Config(envPrefix string) *subcommand.Config {
 	name := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
 	rType := fs.String("type", "", "The request type to cancel. ex: WORK_ORDER")
 	subType := fs.String("subtype", "", "The request subtype to cancel.")
+	reason := fs.String("reason", "", "Code of the cancel reason. Must be a value from the code table 'RequestCancellationReasons'.")
+	note := fs.String("note", "", "Note with additional information regarding the cancellation")
 	dryrun := fs.Bool("dryrun", false, "Do not perform any updates. Report on what changes would have been made.")
 	fs.Usage = func() {
 		description := "Cancel item requests of type and/or subtype on items in the given set."
@@ -41,6 +43,9 @@ func Config(envPrefix string) *subcommand.Config {
 			}
 			if *rType == "" && *subType == "" {
 				return fmt.Errorf("a request type or a request sub type are required")
+			}
+			if *reason == "" {
+				return fmt.Errorf("a reason is required, try the 'dump-conf' subcommand to find a value from the 'RequestCancellationReasons' table")
 			}
 			return nil
 		},
@@ -79,31 +84,31 @@ func Config(envPrefix string) *subcommand.Config {
 			}
 			matchingMap := map[string]bool{}
 			for _, request := range matching {
-				matchingMap[request.Member.Link] = true
+				matchingMap[request.Link] = true
 			}
 			cancelled := []api.UserRequest{}
 			errs = []error{}
 			if !*dryrun {
-				cancelled, errs = c.UserRequestsCancel(ctx, matching)
+				cancelled, errs = c.UserRequestsCancel(ctx, matching, *reason, *note)
 			}
 			cancelledMap := map[string]bool{}
 			for _, request := range cancelled {
-				cancelledMap[request.Member.Link] = true
+				cancelledMap[request.Link] = true
 			}
 			w := csv.NewWriter(os.Stdout)
-			err = w.Write([]string{"Item Link", "Request ID", "Request Type", "Request Subtype", "Matched type and subtype", "Cancelled in Alma"})
+			err = w.Write([]string{"Request Link", "Request Type", "Request Subtype", "Matched type and subtype", "Cancelled in Alma"})
 			if err != nil {
 				return fmt.Errorf("error writing csv header: %w", err)
 			}
 			for _, request := range requests {
-				line := []string{request.Member.Link, request.ID, request.Type, request.SubType}
-				_, inMatching := matchingMap[request.Member.Link]
+				line := []string{request.Link, request.Type, request.SubType}
+				_, inMatching := matchingMap[request.Link]
 				if inMatching {
 					line = append(line, "yes")
 				} else {
 					line = append(line, "no")
 				}
-				_, inCancelled := cancelledMap[request.Member.Link]
+				_, inCancelled := cancelledMap[request.Link]
 				if inCancelled {
 					line = append(line, "yes")
 				} else {
