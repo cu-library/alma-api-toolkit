@@ -188,7 +188,7 @@ func StartConcurrent(ctx context.Context, numJobs int, desc string) (context.Con
 	wg := &sync.WaitGroup{}
 	StartWorkers(wg, jobs)
 	bar := DefaultProgressBar(numJobs)
-	bar.Describe("Getting code tables")
+	bar.Describe(desc)
 	return ctx, cancel, em, om, jobs, wg, bar
 }
 
