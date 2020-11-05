@@ -98,17 +98,14 @@ func Config(envPrefix string) *subcommand.Config {
 				return fmt.Errorf("error writing csv header: %w", err)
 			}
 			for _, holding := range holdings {
-				line := []string{}
-				link := holding.HoldingListMember.Link
-				line = append(line, holding.HoldingListMember.Link)
-				line = append(line, holding.EightFiftyTwoSubHSubI())
-				cleanedHolding, inCleaned := cleanedMap[link]
+				line := []string{holding.HoldingListMember.Link, holding.EightFiftyTwoSubHSubI()}
+				cleanedHolding, inCleaned := cleanedMap[holding.HoldingListMember.Link]
 				if inCleaned {
 					line = append(line, cleanedHolding.EightFiftyTwoSubHSubI())
 				} else {
 					line = append(line, "")
 				}
-				_, inUpdated := updatedMap[link]
+				_, inUpdated := updatedMap[holding.HoldingListMember.Link]
 				if inUpdated {
 					line = append(line, "yes")
 				} else {
