@@ -21,22 +21,21 @@ import (
 )
 
 // Config returns a new subcommand config.
-func Config() *subcommand.Config {
+func Config(envPrefix string) *subcommand.Config {
 	fs := flag.NewFlagSet("bibs-clean-up-call-numbers", flag.ExitOnError)
 	ID := fs.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
 	name := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
 	dryrun := fs.Bool("dryrun", false, "Do not perform any updates. Report on what changes would have been made.")
 	fs.Usage = func() {
-		fmt.Fprintln(flag.CommandLine.Output(), "  Clean up the call numbers in the holdings records for a set of bib records.")
-		fmt.Fprintln(flag.CommandLine.Output(), "  A CSV report of the changes made is printed to stdout.")
-		fmt.Fprintln(flag.CommandLine.Output(), "")
-		fmt.Fprintln(flag.CommandLine.Output(), "  The following rules are run on the call numbers:")
-		fmt.Fprintln(flag.CommandLine.Output(), "  - Add a space between a number then a letter.")
-		fmt.Fprintln(flag.CommandLine.Output(), "  - Add a space between a number and a period when the period is followed by a letter.")
-		fmt.Fprintln(flag.CommandLine.Output(), "  - Remove the extra periods from any substring matching space period period...")
-		fmt.Fprintln(flag.CommandLine.Output(), "  - Remove any spaces between a period and a number.")
-		fmt.Fprintln(flag.CommandLine.Output(), "  - Remove any leading or trailing whitespace.")
-		fmt.Fprintln(flag.CommandLine.Output(), "")
+		description := "Clean up the call numbers in the holdings records for a set of bib records.\n" +
+			"\n" +
+			"The following rules are run on the call numbers:\n" +
+			"Add a space between a number then a letter.\n" +
+			"Add a space between a number and a period when the period is followed by a letter.\n" +
+			"Remove the extra periods from any substring matching space period period...\n" +
+			"Remove any spaces between a period and a number.\n" +
+			"Remove any leading or trailing whitespace."
+		subcommand.Usage(fs, envPrefix, description)
 	}
 	return &subcommand.Config{
 		ReadAccess:  []string{"/almaws/v1/conf"},

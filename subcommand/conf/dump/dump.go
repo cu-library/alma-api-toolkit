@@ -17,14 +17,15 @@ import (
 )
 
 // Config returns a new subcommand config.
-func Config() *subcommand.Config {
+func Config(envPrefix string) *subcommand.Config {
 	fs := flag.NewFlagSet("conf-dump", flag.ExitOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(flag.CommandLine.Output(), "  Print the output of the library and departments endpoints, and the known code tables.")
-		fmt.Fprintln(flag.CommandLine.Output(), "  The list of known code tables comes from")
-		fmt.Fprintln(flag.CommandLine.Output(), "  https://developers.exlibrisgroup.com/blog/almas-code-tables-api-list-of-code-tables/")
-		fmt.Fprintln(flag.CommandLine.Output(), "  This command is meant to help run other subcommands which sometimes need a particular code")
-		fmt.Fprintln(flag.CommandLine.Output(), "  from a code table or the code for a library or department.")
+		description := "Print the output of the library and departments endpoints, and the known code tables.\n" +
+			"The list of known code tables comes from:\n" +
+			"https://developers.exlibrisgroup.com/blog/almas-code-tables-api-list-of-code-tables/\n" +
+			"This command is meant to help run other subcommands which sometimes need a particular\n" +
+			"code from a code table or the code for a library or department."
+		subcommand.UsageNoFlags(fs, description)
 	}
 	return &subcommand.Config{
 		ReadAccess: []string{"/almaws/v1/conf"},

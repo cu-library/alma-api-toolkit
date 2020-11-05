@@ -53,11 +53,11 @@ func main() {
 
 	// Subcommands this tool understands.
 	registry := subcommand.Registry{}
-	registry.Register(dump.Config())
-	registry.Register(cleanupcallnumbers.Config())
-	registry.Register(requests.Config())
-	registry.Register(cancelrequests.Config())
-	registry.Register(scanin.Config())
+	registry.Register(dump.Config(EnvPrefix))
+	registry.Register(cleanupcallnumbers.Config(EnvPrefix))
+	registry.Register(requests.Config(EnvPrefix))
+	registry.Register(cancelrequests.Config(EnvPrefix))
+	registry.Register(scanin.Config(EnvPrefix))
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "%v\n", ProjectName)
@@ -71,16 +71,8 @@ func main() {
 		fmt.Fprintln(flag.CommandLine.Output(), "")
 		fmt.Fprintln(flag.CommandLine.Output(), "Subcommands:")
 		fmt.Fprintln(flag.CommandLine.Output(), "")
-		for name, sub := range registry {
-			fmt.Fprintf(flag.CommandLine.Output(), "%v\n", name)
-			if sub.FlagSet != nil {
-				sub.FlagSet.Usage()
-			}
-			fmt.Fprintln(flag.CommandLine.Output(), "  Environment variables read when flag is unset:")
-			sub.FlagSet.VisitAll(func(f *flag.Flag) {
-				fmt.Fprintf(flag.CommandLine.Output(), "  %v%v\n", subcommandEnvPrefix(EnvPrefix, name), strings.ToUpper(f.Name))
-			})
-			fmt.Fprintln(flag.CommandLine.Output(), "")
+		for _, sub := range registry {
+			sub.FlagSet.Usage()
 		}
 	}
 
@@ -130,7 +122,7 @@ func main() {
 	_ = sub.FlagSet.Parse(flag.Args()[1:])
 	// If any flags have not been set, see if there are
 	// environment variables that set them.
-	err = overridefromenv.Override(sub.FlagSet, subcommandEnvPrefix(EnvPrefix, subName))
+	err = overridefromenv.Override(sub.FlagSet, subcommand.EnvPrefix(EnvPrefix, subName))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -188,8 +180,4 @@ func main() {
 	cancel()
 	wg.Wait()
 	os.Exit(0)
-}
-
-func subcommandEnvPrefix(prefix, name string) string {
-	return prefix + strings.ToUpper(strings.ReplaceAll(name, "-", "")) + "_"
 }

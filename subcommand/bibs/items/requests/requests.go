@@ -19,12 +19,13 @@ import (
 )
 
 // Config returns a new subcommand config.
-func Config() *subcommand.Config {
+func Config(envPrefix string) *subcommand.Config {
 	fs := flag.NewFlagSet("items-requests", flag.ExitOnError)
 	ID := fs.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
 	name := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
 	fs.Usage = func() {
-		fmt.Fprintln(flag.CommandLine.Output(), "  View requests on items in the given set.")
+		description := "View requests on items in the given set."
+		subcommand.Usage(fs, envPrefix, description)
 	}
 	return &subcommand.Config{
 		ReadAccess: []string{"/almaws/v1/conf", "/almaws/v1/bibs"},

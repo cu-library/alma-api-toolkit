@@ -19,7 +19,7 @@ import (
 )
 
 // Config returns a new subcommand config.
-func Config() *subcommand.Config {
+func Config(envPrefix string) *subcommand.Config {
 	fs := flag.NewFlagSet("items-scan-in", flag.ExitOnError)
 	ID := fs.String("setid", "", "The ID of the set we are processing. This flag or setname are required.")
 	name := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
@@ -28,7 +28,8 @@ func Config() *subcommand.Config {
 	library := fs.String("library", "", "The library code. Use the conf-libaries-departments-code-tables subcommand to see the possible values.")
 	dryrun := fs.Bool("dryrun", false, "Do not perform any updates. Report on what changes would have been made.")
 	fs.Usage = func() {
-		fmt.Fprintln(flag.CommandLine.Output(), "  Scan the members of a set of items in.")
+		description := "Scan the members of a set of items in."
+		subcommand.Usage(fs, envPrefix, description)
 	}
 	return &subcommand.Config{
 		ReadAccess:  []string{"/almaws/v1/conf"},

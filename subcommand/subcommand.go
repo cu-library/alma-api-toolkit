@@ -10,6 +10,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strings"
 
 	"github.com/cu-library/almatoolkit/api"
 )
@@ -41,4 +42,31 @@ func ValidateSetNameAndSetIDFlags(name, ID string) error {
 		return fmt.Errorf("a set name OR a set ID can be provided, not both")
 	}
 	return nil
+}
+
+// Usage prints the name, description, flags, and env vars for a subcommand.
+func Usage(fs *flag.FlagSet, envPrefix string, description string) {
+	usageNameAndDescription(fs, description)
+	fs.PrintDefaults()
+	fmt.Fprintln(flag.CommandLine.Output(), "")
+	fmt.Fprintln(flag.CommandLine.Output(), "  Environment variables read when flag is unset:")
+	fs.VisitAll(func(f *flag.Flag) {
+		fmt.Fprintf(flag.CommandLine.Output(), "  %v%v\n", EnvPrefix(envPrefix, fs.Name()), strings.ToUpper(f.Name))
+	})
+	fmt.Fprintln(flag.CommandLine.Output(), "")
+}
+
+// UsageNoFlags prints the name and description of subcommand.
+func UsageNoFlags(fs *flag.FlagSet, description string) {
+	usageNameAndDescription(fs, description)
+}
+
+func usageNameAndDescription(fs *flag.FlagSet, description string) {
+	fmt.Fprintf(flag.CommandLine.Output(), "%v\n", fs.Name())
+	fmt.Fprintf(flag.CommandLine.Output(), "  %v\n\n", strings.ReplaceAll(description, "\n", "\n  "))
+}
+
+// EnvPrefix returns the prefix for enviroment variables for the subocommand.
+func EnvPrefix(prefix, name string) string {
+	return prefix + strings.ToUpper(strings.ReplaceAll(name, "-", "")) + "_"
 }
