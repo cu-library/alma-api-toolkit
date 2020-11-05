@@ -54,7 +54,7 @@ func Config(envPrefix string) *subcommand.Config {
 			} else {
 				log.Println("WARNING: Not running in dry run mode, changes will be made in Alma!")
 			}
-			set, err := c.SetFromNameOrID(ctx, *ID, *name)
+			set, err := c.SetFromNameOrID(ctx, *name, *ID)
 			if err != nil {
 				return err
 			}

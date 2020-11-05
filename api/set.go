@@ -54,23 +54,21 @@ type Members struct {
 // SetFromNameOrID returns the set when provided the name or ID.
 func (c Client) SetFromNameOrID(ctx context.Context, name, ID string) (set Set, err error) {
 	if name != "" {
-		set, err := c.SetFromName(ctx, name)
+		var err error
+		ID, err = c.SetIDFromName(ctx, name)
 		if err != nil {
 			return set, fmt.Errorf("getting set ID from name failed: %w", err)
 		}
-		return set, nil
 	}
-	if ID != "" {
-		set, err := c.SetFromID(ctx, ID)
-		if err != nil {
-			return set, fmt.Errorf("getting set from ID failed: %w", err)
-		}
+	set, err = c.SetFromID(ctx, ID)
+	if err != nil {
+		return set, fmt.Errorf("getting set from ID failed: %w", err)
 	}
-	return set, fmt.Errorf("could not find set for name '%v' or ID '%v'", name, ID)
+	return set, nil
 }
 
-// SetFromName returns the set with the given set name.
-func (c Client) SetFromName(ctx context.Context, name string) (set Set, err error) {
+// SetIDFromName returns the ID for the set with the given set name.
+func (c Client) SetIDFromName(ctx context.Context, name string) (ID string, err error) {
 	url := &url.URL{
 		Path: "/almaws/v1/conf/sets",
 	}
@@ -79,23 +77,23 @@ func (c Client) SetFromName(ctx context.Context, name string) (set Set, err erro
 	url.RawQuery = q.Encode()
 	r, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
-		return set, err
+		return ID, err
 	}
 	body, err := c.Do(ctx, r)
 	if err != nil {
-		return set, err
+		return ID, err
 	}
 	sets := Sets{}
 	err = xml.Unmarshal(body, &sets)
 	if err != nil {
-		return set, fmt.Errorf("unmarshalling sets XML failed: %w\n%v", err, string(body))
+		return ID, fmt.Errorf("unmarshalling sets XML failed: %w\n%v", err, string(body))
 	}
 	for _, set := range sets.Sets {
 		if strings.TrimSpace(set.Name) == strings.TrimSpace(name) {
-			return set, nil
+			return set.ID, nil
 		}
 	}
-	return set, fmt.Errorf("no set with name '%v' found", name)
+	return ID, fmt.Errorf("no set with name '%v' found", name)
 }
 
 // SetFromID returns the set with the given set ID.

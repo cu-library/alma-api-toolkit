@@ -34,7 +34,7 @@ func Config(envPrefix string) *subcommand.Config {
 			return subcommand.ValidateSetNameAndSetIDFlags(*name, *ID)
 		},
 		Run: func(ctx context.Context, c *api.Client) error {
-			set, err := c.SetFromNameOrID(ctx, *ID, *name)
+			set, err := c.SetFromNameOrID(ctx, *name, *ID)
 			if err != nil {
 				return err
 			}
