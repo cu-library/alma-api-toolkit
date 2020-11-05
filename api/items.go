@@ -28,7 +28,7 @@ type Item struct {
 	CallNumber string   `xml:"holding_data>call_number"`
 	Barcode    string   `xml:"item_data>barcode"`
 	// An optional attribute for the link to the item.
-	Link       string   `xml:"-"`
+	Link string `xml:"-"`
 }
 
 // ItemMembersScanIn scans members in. The members must be from a set with content ITEM.
