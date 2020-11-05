@@ -25,7 +25,7 @@ func Config(envPrefix string) *subcommand.Config {
 	name := fs.String("setname", "", "The name of the set we are processing. This flag or setid are required.")
 	circdesk := fs.String("circdesk", api.DefaultCircDesk, "The circ desk code. The possible values are not available through the API, "+
 		"see https://developers.exlibrisgroup.com/alma/apis/docs/xsd/rest_item_loan.xsd/?tags=GET.")
-	library := fs.String("library", "", "The library code. Use the conf-libaries-departments-code-tables subcommand to see the possible values.")
+	library := fs.String("library", "", "The library code. Use the conf-dump subcommand to see the possible values.")
 	dryrun := fs.Bool("dryrun", false, "Do not perform any updates. Report on what changes would have been made.")
 	fs.Usage = func() {
 		description := "Scan the members of a set of items in."
