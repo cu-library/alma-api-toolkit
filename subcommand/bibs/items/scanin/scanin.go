@@ -73,22 +73,22 @@ func Config(envPrefix string) *subcommand.Config {
 			if !*dryrun {
 				items, errs = c.ItemMembersScanIn(ctx, members, *circdesk, *library)
 			}
-			scannedInMap := map[string]bool{}
+			scannedInMap := map[string]api.Item{}
 			for _, item := range items {
-				scannedInMap[item.Barcode] = true
+				scannedInMap[item.Link] = item
 			}
 			w := csv.NewWriter(os.Stdout)
-			err = w.Write([]string{"MMS ID", "Title", "Author", "Call Number", "Barcode", "Scanned in in Alma"})
+			err = w.Write([]string{"Item Link", "Title", "Author", "Call Number", "Barcode", "Scanned in in Alma"})
 			if err != nil {
 				return fmt.Errorf("error writing csv header: %w", err)
 			}
-			for _, item := range items {
-				line := []string{item.MMSID, item.Title, item.Author, item.CallNumber, item.Barcode}
-				_, inScannedIn := scannedInMap[item.Barcode]
+			for _, member := range members {
+				line := []string{member.Link}
+				item, inScannedIn := scannedInMap[member.Link]
 				if inScannedIn {
-					line = append(line, "yes")
+					line = append(line, item.MMSID, item.Title, item.Author, item.CallNumber, item.Barcode, "yes")
 				} else {
-					line = append(line, "no")
+					line = append(line, "", "", "", "", "", "no")
 				}
 				err := w.Write(line)
 				if err != nil {

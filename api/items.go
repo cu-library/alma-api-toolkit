@@ -27,6 +27,8 @@ type Item struct {
 	Author     string   `xml:"bib_data>author"`
 	CallNumber string   `xml:"holding_data>call_number"`
 	Barcode    string   `xml:"item_data>barcode"`
+	// An optional attribute for the link to the item.
+	Link       string   `xml:"-"`
 }
 
 // ItemMembersScanIn scans members in. The members must be from a set with content ITEM.
@@ -83,5 +85,6 @@ func (c Client) ItemMemberScanIn(ctx context.Context, member Member, circdesk, l
 	if err != nil {
 		return item, fmt.Errorf("unmarshalling item XML failed: %w\n%v", err, string(body))
 	}
+	item.Link = member.Link
 	return item, err
 }
