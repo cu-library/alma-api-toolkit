@@ -54,8 +54,8 @@ func Config(envPrefix string) *subcommand.Config {
 			if err != nil {
 				return err
 			}
-			if set.Type != "LOGICAL" || set.Content != "BIB_MMS" {
-				return fmt.Errorf("the set must be a logical set of bibs")
+			if set.Type != "ITEMIZED" || set.Content != "BIB_MMS" {
+				return fmt.Errorf("the set must be an itemized set of bibs")
 			}
 			members, errs := c.SetMembers(ctx, set)
 			if len(errs) != 0 {

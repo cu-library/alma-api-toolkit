@@ -38,8 +38,8 @@ func Config(envPrefix string) *subcommand.Config {
 			if err != nil {
 				return err
 			}
-			if set.Type != "LOGICAL" || set.Content != "ITEM" {
-				return fmt.Errorf("the set must be a logical set of items")
+			if set.Type != "ITEMIZED" || set.Content != "ITEM" {
+				return fmt.Errorf("the set must be an itemized set of items")
 			}
 			members, errs := c.SetMembers(ctx, set)
 			if len(errs) != 0 {
