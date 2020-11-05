@@ -162,6 +162,7 @@ func (c Client) CodeTables(ctx context.Context) (tables []CodeTable, errs []erro
 		"RenewalCycle",
 		"representationEntityType",
 		"RepresentationUsageType",
+		"RequestCancellationReasons",
 		"RequestFormats",
 		"RequestOptions",
 		"ResourceSharingCopyrightsStatus",
