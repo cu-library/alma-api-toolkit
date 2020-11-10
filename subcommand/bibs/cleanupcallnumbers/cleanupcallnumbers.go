@@ -78,16 +78,25 @@ func Config(envPrefix string) *subcommand.Config {
 				}
 				return fmt.Errorf("%v error(s) occured when retrieving the holdings records of '%v' (ID %v)", len(errs), set.Name, set.ID)
 			}
+			// Store the original call number for later reporting.
+			originalCallNumberMap := map[string]string{}
+			for _, holding := range holdings {
+				originalCallNumberMap[holding.HoldingListMember.Link] = holding.EightFiftyTwoSubHSubI()
+			}
+			// Clean up the call numbers, returning a slice of holdings which were cleaned up.
 			cleaned := CleanUpCallNumbers(holdings)
+			// A map from the link to the cleaned holding record, for later reporting.
 			cleanedMap := map[string]api.Holding{}
 			for _, holding := range cleaned {
 				cleanedMap[holding.HoldingListMember.Link] = holding
 			}
+			// Send the cleaned holdings records back the API.
 			updated := []api.Holding{}
 			errs = []error{}
 			if !*dryrun {
 				updated, errs = c.HoldingsUpdate(ctx, cleaned)
 			}
+			// A map so look up if a holdings record was updated in Alma.
 			updatedMap := map[string]bool{}
 			for _, holding := range updated {
 				updatedMap[holding.HoldingListMember.Link] = true
@@ -98,7 +107,7 @@ func Config(envPrefix string) *subcommand.Config {
 				return fmt.Errorf("error writing csv header: %w", err)
 			}
 			for _, holding := range holdings {
-				line := []string{holding.HoldingListMember.Link, holding.EightFiftyTwoSubHSubI()}
+				line := []string{holding.HoldingListMember.Link, originalCallNumberMap[holding.HoldingListMember.Link]}
 				cleanedHolding, inCleaned := cleanedMap[holding.HoldingListMember.Link]
 				if inCleaned {
 					line = append(line, cleanedHolding.EightFiftyTwoSubHSubI())
