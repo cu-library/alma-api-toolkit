@@ -130,7 +130,7 @@ func Config(envPrefix string) *subcommand.Config {
 			if err != nil {
 				return fmt.Errorf("error writing line to csv: %w", err)
 			}
-			log.Printf("%v successful updates to call numbers.\n", len(updated))
+			log.Printf("%v successful update(s) to call numbers.\n", len(updated))
 			if len(errs) != 0 {
 				for _, err := range errs {
 					log.Println(err)

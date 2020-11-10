@@ -73,7 +73,7 @@ func Config(envPrefix string) *subcommand.Config {
 			if err != nil {
 				return fmt.Errorf("error after flushing csv: %w", err)
 			}
-			log.Printf("%v requests found.\n", len(requests))
+			log.Printf("%v request(s) found.\n", len(requests))
 			if len(errs) != 0 {
 				for _, err := range errs {
 					log.Println(err)
