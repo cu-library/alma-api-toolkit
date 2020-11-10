@@ -1,4 +1,4 @@
-# alma-api-toolkit
+# almatoolkit
 
 The Alma API toolkit is a set of tasks which run against the Alma API. It is a replacement for a series of simple scripts which all did similar things:
 
@@ -14,6 +14,8 @@ This toolkit improves reliability by retrying failed HTTP calls if required. HTT
 ## Usage Notes
 
 Sets processed by these subcommands must be itemized and made public.
+
+Subcommands output a CSV report on stdout and a series of log message and progress bars on stderr. You can output the CSV to a file in bash using the `>` operator.
 
 To remove items from a work order, first cancel requests on those items, then scan them in.
 
