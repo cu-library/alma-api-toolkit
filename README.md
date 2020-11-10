@@ -18,35 +18,48 @@ Sets processed by these subcommands must be itemized and made public.
 To remove items from a work order, first cancel requests on those items, then scan them in.
 
 ```
-alma-api-toolkit [FLAGS] subcommand [SUBCOMMAND FLAGS]
+The Alma Toolkit
+./almatoolkit [FLAGS] subcommand [SUBCOMMAND FLAGS]
   -help
-        Print help for this command then exit.
+        Print help documentation then exit.
+  -host string
+        The Alma API host domain name to use. (default "api-ca.hosted.exlibrisgroup.com")
   -key string
         The Alma API key. You can manage your API keys here: https://developers.exlibrisgroup.com/manage/keys/. Required.
-  -server string
-        The Alma API server to use. (default "api-ca.hosted.exlibrisgroup.com")
+  -threshold int
+        The minimum number of API calls remaining before the tool automatically stops working. (default 50000)
   -version
         Print the version then exit.
   Environment variables read when flag is unset:
-  ALMAAPITOOLKIT_HELP
-  ALMAAPITOOLKIT_KEY
-  ALMAAPITOOLKIT_SERVER
-  ALMAAPITOOLKIT_VERSION
+  ALMATOOLKIT_HELP
+  ALMATOOLKIT_HOST
+  ALMATOOLKIT_KEY
+  ALMATOOLKIT_THRESHOLD
+  ALMATOOLKIT_VERSION
 
 Subcommands:
 
 items-requests
   View requests on items in the given set.
+
   -setid string
         The ID of the set we are processing. This flag or setname are required.
   -setname string
         The name of the set we are processing. This flag or setid are required.
+
   Environment variables read when flag is unset:
-  ALMAAPITOOLKIT_ITEMSREQUESTS_SETID
-  ALMAAPITOOLKIT_ITEMSREQUESTS_SETNAME
+  ALMATOOLKIT_ITEMSREQUESTS_SETID
+  ALMATOOLKIT_ITEMSREQUESTS_SETNAME
 
 items-cancel-requests
   Cancel item requests of type and/or subtype on items in the given set.
+
+  -dryrun
+        Do not perform any updates. Report on what changes would have been made.
+  -note string
+        Note with additional information regarding the cancellation
+  -reason string
+        Code of the cancel reason. Must be a value from the code table 'RequestCancellationReasons'.
   -setid string
         The ID of the set we are processing. This flag or setname are required.
   -setname string
@@ -55,45 +68,53 @@ items-cancel-requests
         The request subtype to cancel.
   -type string
         The request type to cancel. ex: WORK_ORDER
+
   Environment variables read when flag is unset:
-  ALMAAPITOOLKIT_ITEMSCANCELREQUESTS_SETID
-  ALMAAPITOOLKIT_ITEMSCANCELREQUESTS_SETNAME
-  ALMAAPITOOLKIT_ITEMSCANCELREQUESTS_SUBTYPE
-  ALMAAPITOOLKIT_ITEMSCANCELREQUESTS_TYPE
+  ALMATOOLKIT_ITEMSCANCELREQUESTS_DRYRUN
+  ALMATOOLKIT_ITEMSCANCELREQUESTS_NOTE
+  ALMATOOLKIT_ITEMSCANCELREQUESTS_REASON
+  ALMATOOLKIT_ITEMSCANCELREQUESTS_SETID
+  ALMATOOLKIT_ITEMSCANCELREQUESTS_SETNAME
+  ALMATOOLKIT_ITEMSCANCELREQUESTS_SUBTYPE
+  ALMATOOLKIT_ITEMSCANCELREQUESTS_TYPE
 
 items-scan-in
-  Scan items in.
+  Scan the members of a set of items in.
+
   -circdesk string
         The circ desk code. The possible values are not available through the API, see https://developers.exlibrisgroup.com/alma/apis/docs/xsd/rest_item_loan.xsd/?tags=GET. (default "DEFAULT_CIRC_DESK")
+  -dryrun
+        Do not perform any updates. Report on what changes would have been made.
   -library string
-        The library code. Use the conf-libaries-departments-code-tables subcommand to see the possible values.
+        The library code. Use the conf-dump subcommand to see the possible values.
   -setid string
         The ID of the set we are processing. This flag or setname are required.
   -setname string
         The name of the set we are processing. This flag or setid are required.
+
   Environment variables read when flag is unset:
-  ALMAAPITOOLKIT_ITEMSSCANIN_CIRCDESK
-  ALMAAPITOOLKIT_ITEMSSCANIN_LIBRARY
-  ALMAAPITOOLKIT_ITEMSSCANIN_SETID
-  ALMAAPITOOLKIT_ITEMSSCANIN_SETNAME
+  ALMATOOLKIT_ITEMSSCANIN_CIRCDESK
+  ALMATOOLKIT_ITEMSSCANIN_DRYRUN
+  ALMATOOLKIT_ITEMSSCANIN_LIBRARY
+  ALMATOOLKIT_ITEMSSCANIN_SETID
+  ALMATOOLKIT_ITEMSSCANIN_SETNAME
 
-conf-libaries-departments-code-tables
+conf-dump
   Print the output of the library and departments endpoints, and the known code tables.
-  The list of known code tables comes from
+  The list of known code tables comes from:
   https://developers.exlibrisgroup.com/blog/almas-code-tables-api-list-of-code-tables/
-  This command is meant to help run other subcommands which sometimes need a particular code
-  from a code table or the code for a library or department.
+  This command is meant to help run other subcommands which sometimes need a particular
+  code from a code table or the code for a library or department.
 
-holdings-clean-up-call-numbers
-  Clean up the call numbers on a set of holdings records.
-  A CSV report of the changes made is printed to stdout.
+bibs-clean-up-call-numbers
+  Clean up the call numbers in the holdings records for a set of bib records.
 
   The following rules are run on the call numbers:
-  - Add a space between a number then a letter.
-  - Add a space between a number and a period when the period is followed by a letter.
-  - Remove the extra periods from any substring matching space period period...
-  - Remove any spaces between a period and a number.
-  - Remove any leading or trailing whitespace.
+  Add a space between a number then a letter.
+  Add a space between a number and a period when the period is followed by a letter.
+  Remove the extra periods from any substring matching space period period...
+  Remove any spaces between a period and a number.
+  Remove any leading or trailing whitespace.
 
   -dryrun
         Do not perform any updates. Report on what changes would have been made.
@@ -101,10 +122,12 @@ holdings-clean-up-call-numbers
         The ID of the set we are processing. This flag or setname are required.
   -setname string
         The name of the set we are processing. This flag or setid are required.
+
   Environment variables read when flag is unset:
-  ALMAAPITOOLKIT_HOLDINGSCLEANUPCALLNUMBERS_DRYRUN
-  ALMAAPITOOLKIT_HOLDINGSCLEANUPCALLNUMBERS_SETID
-  ALMAAPITOOLKIT_HOLDINGSCLEANUPCALLNUMBERS_SETNAME
+  ALMATOOLKIT_BIBSCLEANUPCALLNUMBERS_DRYRUN
+  ALMATOOLKIT_BIBSCLEANUPCALLNUMBERS_SETID
+  ALMATOOLKIT_BIBSCLEANUPCALLNUMBERS_SETNAME
+
 ```
 
 ## Subcommand Notes
