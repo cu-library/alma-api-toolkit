@@ -9,7 +9,7 @@ Those scripts worked well for smaller sets, but were too unreliable and slow for
 
 ## Advantages
 
-This toolkit improves reliability by retrying failed HTTP calls if required. HTTP requests are performed in parallel so that tasks can be completed more quickly. It also ensures the API call limit is respected.
+This toolkit improves reliability by retrying failed HTTP calls if required. HTTP requests are performed in parallel so that tasks can be completed more quickly. It also ensures the API's daily and concurrent API request thresholds are respected.
 
 ## Usage Notes
 

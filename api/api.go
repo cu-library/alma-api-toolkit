@@ -19,14 +19,20 @@ import (
 	"time"
 
 	"github.com/schollz/progressbar/v3"
+	"golang.org/x/time/rate"
 )
 
 const (
 	// RequestTimeout is the amount of time the tool will wait for API calls to complete before they are cancelled.
-	RequestTimeout = 30 * time.Second
+	RequestTimeout = 60 * time.Second
 
 	// LimitParam is the limit parameter to offset+limit calls.
 	LimitParam = 100
+
+	// LimiterRate is the maximum number of API calls per second the tool will allow.
+	// Per https://developers.exlibrisgroup.com/alma/apis/#threshold, the real limit is 25,
+	// but we want to allow other API calls to succeeed while the tool is running.
+	LimiterRate = 15
 
 	// DefaultThreshold is the minimum number of API calls remaining before the tool automatically stops working.
 	DefaultThreshold = 50000
@@ -39,6 +45,9 @@ const (
 type Client struct {
 	// Client is the embedded http client.
 	*http.Client
+	// limiter is a rate limiter which ensures the client does not go over 15 API calls per second.
+	//
+	limiter *rate.Limiter
 	// Host is the host name (domain name) for the Alma API we are calling.
 	Host string
 	// Key is the authorization key to use when calling the Alma API.
@@ -46,6 +55,17 @@ type Client struct {
 	// Threshold is the minimum number of API calls remaining before
 	// the Cancel function is called.
 	Threshold int
+}
+
+// NewClient returns a new Client.
+func NewClient(host, key string, threshold int) *Client {
+	return &Client{
+		Client:    http.DefaultClient,
+		limiter:   rate.NewLimiter(rate.Limit(LimiterRate), LimiterRate),
+		Host:      host,
+		Key:       key,
+		Threshold: threshold,
+	}
 }
 
 // ThresholdReachedError is an error returned when the API remaining call limit has been reached.
@@ -112,8 +132,10 @@ func (c *Client) Do(ctx context.Context, r *http.Request) (body []byte, err erro
 		case <-time.After(time.Duration(backoff) * time.Second):
 			// The select statement chooses one case at random if multiple are ready.
 			// It is therefore possible that the context is cancelled.
-			if ctx.Err() != nil {
-				return body, fmt.Errorf("%v %v: %w", r.Method, r.URL.String(), ctx.Err())
+			// Wait on the rate limiter. This method also checks to see if the context is cancelled.
+			err = c.limiter.Wait(ctx)
+			if err != nil {
+				return body, fmt.Errorf("%v %v: %w", r.Method, r.URL.String(), err)
 			}
 			// Make the request using the embedded http.Client.
 			resp, err := c.Client.Do(r)
