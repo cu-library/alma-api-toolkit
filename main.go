@@ -93,28 +93,22 @@ func main() {
 	// environment variables that set them.
 	err := overridefromenv.Override(flag.CommandLine, EnvPrefix)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("FATAL: %v.\n", err)
 	}
 
 	// Check that required flags are set.
 	if *key == "" {
-		log.Fatal("FATAL: An Alma API key is required.")
-		flag.Usage()
-		os.Exit(1)
+		log.Fatalln("FATAL: An Alma API key is required.")
 	}
 
 	// Was a subcommand provided? Was it valid?
 	if len(flag.Args()) == 0 {
-		log.Println("FATAL: A subcommand is required.")
-		flag.Usage()
-		os.Exit(1)
+		log.Fatalln("FATAL: A subcommand is required.")
 	}
 	subName := flag.Args()[0]
 	sub, valid := registry[subName]
 	if !valid {
-		log.Printf("FATAL: \"%v\" is not a valid subcommand.\n", subName)
-		flag.Usage()
-		os.Exit(1)
+		log.Fatalf("FATAL: \"%v\" is not a valid subcommand.\n", subName)
 	}
 
 	// Ignore errors; FlagSets are all set for ExitOnError.
@@ -123,14 +117,12 @@ func main() {
 	// environment variables that set them.
 	err = overridefromenv.Override(sub.FlagSet, subcommand.EnvPrefix(EnvPrefix, subName))
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("FATAL: %v.\n", err)
 	}
 	if sub.ValidateFlags != nil {
 		err = sub.ValidateFlags()
 		if err != nil {
-			log.Printf("FATAL: %v.\n", err)
-			flag.Usage()
-			os.Exit(1)
+			log.Fatalf("FATAL: %v.\n", err)
 		}
 	}
 
@@ -162,21 +154,18 @@ func main() {
 	if err != nil {
 		cancel()
 		wg.Wait()
-		log.Printf("FATAL: API access check failed, %v.\n", err)
-		os.Exit(1)
+		log.Fatalf("FATAL: API access check failed, %v.\n", err)
 	}
 
 	// Run the subcommand.
 	err = sub.Run(ctx, c)
 	if err != nil {
-		log.Printf("FATAL: %v.\n", err)
 		cancel()
 		wg.Wait()
-		os.Exit(1)
+		log.Fatalf("FATAL: %v.\n", err)
 	}
 
-	// No errors, cancel the context, wait on the WaitGroup, then exit with 0 status.
+	// No errors, cancel the context, wait on the WaitGroup.
 	cancel()
 	wg.Wait()
-	os.Exit(0)
 }
